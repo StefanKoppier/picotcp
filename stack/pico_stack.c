@@ -22,6 +22,7 @@
 #include "pico_arp.h"
 #include "pico_ipv4.h"
 #include "pico_ipv6.h"
+#include "pico_geonetworking.h"
 #include "pico_icmp4.h"
 #include "pico_icmp6.h"
 #include "pico_igmp.h"
@@ -252,6 +253,11 @@ int32_t pico_network_receive(struct pico_frame *f)
         pico_enqueue(pico_proto_ipv6.q_in, f);
     }
 #endif
+#ifdef PICO_SUPPORT_GEONETWORKING
+    else if (IS_GN(f)) {
+        pico_enqueue(pico_proto_geonetworking.q_in, f);
+    }
+#endif
     else {
         dbg("Network not found.\n");
         pico_frame_discard(f);
@@ -376,6 +382,20 @@ static int32_t pico_ipv6_ethernet_receive(struct pico_frame *f)
 }
 #endif
 
+#ifdef PICO_SUPPORT_GEONETWORKING
+static int32_t pico_gn_ethernet_receive(struct pico_frame *f)
+{
+    if (IS_GN(f)) {
+        pico_enqueue(pico_proto_ipv6.q_in, f);
+    } else {
+        pico_frame_discard(f);
+        return -1;
+    }
+    
+    return (int32_t)f->buffer_len;
+}
+#endif
+
 static int32_t pico_ll_receive(struct pico_frame *f)
 {
     struct pico_eth_hdr *hdr = (struct pico_eth_hdr *) f->datalink_hdr;
@@ -397,6 +417,12 @@ static int32_t pico_ll_receive(struct pico_frame *f)
     if (hdr->proto == PICO_IDETH_IPV6)
         return pico_ipv6_ethernet_receive(f);
 
+#endif
+    
+    // Any reason to use #if defined instead of #ifdef?
+#ifdef PICO_SUPPORT_GEONETWORKING 
+    if (hdr->proto == PICO_IDETH_GN)
+        return pico_gn_ethernet_receive(f);
 #endif
 
     pico_frame_discard(f);

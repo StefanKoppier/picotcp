@@ -40,8 +40,9 @@
 #ifdef PICO_BIGENDIAN
 
 # define PICO_IDETH_IPV4 0x0800
-# define PICO_IDETH_ARP 0x0806
+# define PICO_IDETH_ARP  0x0806
 # define PICO_IDETH_IPV6 0x86DD
+# define PICO_IDETH_GN   0x8947
 
 # define PICO_ARP_REQUEST 0x0001
 # define PICO_ARP_REPLY   0x0002
@@ -99,8 +100,9 @@ static inline uint32_t long_from(void *_p)
 
 
 # define PICO_IDETH_IPV4 0x0008
-# define PICO_IDETH_ARP 0x0608
+# define PICO_IDETH_ARP  0x0608
 # define PICO_IDETH_IPV6 0xDD86
+# define PICO_IDETH_GN   0x4789
 
 # define PICO_ARP_REQUEST 0x0100
 # define PICO_ARP_REPLY   0x0200
