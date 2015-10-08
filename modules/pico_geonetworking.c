@@ -1,6 +1,12 @@
 #include "pico_geonetworking.h"
+#include "pico_frame.h"
+#include "pico_eth.h"
 
-static struct pico_queue in = {0};
+#define PICO_SIZE_GNBASICHDR  ((uint32_t)sizeof(struct pico_gn_basic_header))
+#define PICO_SIZE_GNCOMMONHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
+#define PICO_SIZE_GNHDR (PICO_SIZE_GNBASICHDR + PICO_SIZE_GNCOMMONHDR)
+
+static struct pico_queue in  = {0};
 static struct pico_queue out = {0};
 
 // Interface protocol definition 
@@ -18,8 +24,19 @@ struct pico_protocol pico_proto_geonetworking = {
 
 struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
 {
-    // TODO: Implement function
-    return NULL;
+    struct pico_frame *f = pico_frame_alloc(PICO_SIZE_ETHHDR + PICO_SIZE_GNHDR /* + Specific extended header size */ + size);
+    IGNORE_PARAMETER(self);
+    
+    if (!f)
+        return NULL;
+    
+    f->datalink_hdr = f->buffer;
+    f->net_hdr = f->buffer + PICO_SIZE_ETHHDR;
+    f->net_len = PICO_SIZE_GNHDR /* + Specific extended header size */;
+    f->transport_hdr = f->net_hdr + PICO_SIZE_GNHDR /* + Specific extended header size */;
+    f->transport_len = size;
+    f->len = size + PICO_SIZE_GNHDR /* + Specific extended header size */;
+    return f;
 }
 
 int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
