@@ -55,6 +55,7 @@ PPP?=1
 CYASSL?=0
 WOLFSSL?=0
 POLARSSL?=0
+GEONETWORKING?=0
 
 #IPv6 related
 IPV6?=1
@@ -278,6 +279,9 @@ endif
 ifneq ($(POLARSSL),0)
   include rules/polarssl.mk
 endif
+ifneq ($(GEONETWORKING),0)
+  include rules/geonetworking.mk
+endif
 
 all: mod core lib
 
@@ -368,6 +372,7 @@ units: mod core lib $(UNITS_OBJ) $(MOD_OBJ)
 	@$(CC) -o $(PREFIX)/test/modunit_dev_ppp.elf $(CFLAGS) -I. test/unit/modunit_pico_dev_ppp.c  -lcheck -lm -pthread -lrt $(UNITS_OBJ) $(PREFIX)/lib/libpicotcp.a
 	@$(CC) -o $(PREFIX)/test/modunit_mld.elf $(CFLAGS) -I. test/unit/modunit_pico_mld.c  -lcheck -lm -pthread -lrt $(UNITS_OBJ) $(PREFIX)/lib/libpicotcp.a
 	@$(CC) -o $(PREFIX)/test/modunit_igmp.elf $(CFLAGS) -I. test/unit/modunit_pico_igmp.c  -lcheck -lm -pthread -lrt $(UNITS_OBJ) $(PREFIX)/lib/libpicotcp.a
+	@$(CC) -o $(PREFIX)/test/modunit_geonetworking.elf $(CFLAGS) -I. test/unit/modunit_pico_geonetworking.c  -lcheck -lm -pthread -lrt $(UNITS_OBJ) $(PREFIX)/lib/libpicotcp.a
 
 devunits: mod core lib
 	@echo -e "\n\t[UNIT TESTS SUITE: device drivers]"

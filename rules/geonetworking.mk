@@ -1,0 +1,2 @@
+OPTIONS+=-DPICO_SUPPORT_GEONETWORKING
+MOD_OBJ+=$(LIBBASE)modules/pico_geonetworking.o
