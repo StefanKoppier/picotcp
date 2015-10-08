@@ -4,7 +4,7 @@ static struct pico_queue in = {0};
 static struct pico_queue out = {0};
 
 // Interface protocol definition 
-struct pico_protocol pico_proto_ipv4 = {
+struct pico_protocol pico_proto_geonetworking = {
     .name = "geonetworking",
     .proto_number = PICO_PROTO_GEONETWORKING,
     .layer = PICO_LAYER_NETWORK,
