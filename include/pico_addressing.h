@@ -41,12 +41,13 @@ PACKED_STRUCT_DEF pico_trans
 };
 
 /* Here are some protocols. */
-#define PICO_PROTO_IPV4   0
-#define PICO_PROTO_ICMP4  1
-#define PICO_PROTO_IGMP  2
-#define PICO_PROTO_TCP    6
-#define PICO_PROTO_UDP    17
-#define PICO_PROTO_IPV6   41
-#define PICO_PROTO_ICMP6  58
+#define PICO_PROTO_IPV4            0
+#define PICO_PROTO_ICMP4           1
+#define PICO_PROTO_IGMP            2
+#define PICO_PROTO_TCP             6
+#define PICO_PROTO_UDP             17
+#define PICO_PROTO_IPV6            41
+#define PICO_PROTO_ICMP6           58
+#define PICO_PROTO_GEONETWORKING   60 /* Does this number matter? */
 
 #endif
