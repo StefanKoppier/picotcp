@@ -14,7 +14,7 @@
 #include "pico_tree.h"
 
 #define dns_dbg(...) do {} while(0)
-/* #define dns_dbg dbg */
+//#define dns_dbg dbg
 
 /* MARK: v NAME & IP FUNCTIONS */
 #define dns_name_foreach_label_safe(label, name, next, maxlen) \
@@ -444,9 +444,8 @@ void
 pico_dns_ipv6_set_ptr( const char *ip, char *dst )
 {
     int i = 0, j = 0;
-    struct pico_ip6 ip6 = {
-        .addr = {}
-    };
+    struct pico_ip6 ip6;
+    memset(&ip6, 0, sizeof(struct pico_ip6));
     pico_string_to_ipv6(ip, ip6.addr);
     for (i = 15; i >= 0; i--) {
         if ((j + 3) > 64) return; /* Don't want j to go out of bounds */
@@ -943,7 +942,7 @@ pico_dns_record_create( const char *url,
                                       datalen);
 
     /* Check if everything succeeded */
-    if (!(record->rname) || ret || !(record->rdata)) {
+    if (!(record->rname) || ret) {
         pico_dns_record_delete((void **)&record);
         return NULL;
     }
@@ -1003,6 +1002,8 @@ pico_dns_rdata_cmp( uint8_t *a, uint8_t *b,
 
     /* Check params */
     if (!a || !b) {
+        if (!a && !b)
+            return 0;
         pico_err = PICO_ERR_EINVAL;
         return -1;
     }
