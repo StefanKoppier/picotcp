@@ -132,13 +132,13 @@ int pico_gn_process_beacon_in(struct pico_frame *f)
 int pico_gn_process_guc_in(struct pico_frame *f)
 {
     
+    
     // TODO: Implement function
     return -1;
 }
 
 int pico_gn_process_gac_in(struct pico_frame *f)
 {
-    
     // TODO: Implement function
     return -1;
 }
@@ -210,4 +210,16 @@ int pico_gn_find_extended_header_length(struct pico_gn_header *header)
             }
         default: return -1;
     }
+}
+
+int pico_gn_detect_duplicate_SNTST_packet(struct pico_frame *f)
+{
+    // TODO: Implement function
+    return -1;
+}
+
+int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f)
+{
+    // TODO: Implement function
+    return -1;
 }

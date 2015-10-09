@@ -11,9 +11,12 @@
 #include "pico_protocol.h"
 #include "pico_config.h"
 
+
 #define PICO_GN_PROTOCOL_VERSION 0 // EN 302 636-4-1 v1.2.1
 
+
 extern struct pico_protocol pico_proto_geonetworking;
+
 
 #define PICO_SIZE_GNBASICHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
 /// The Basic Header is a header present in every GeoNetworking packet.
@@ -98,6 +101,37 @@ PACKED_STRUCT_DEF pico_gn_lsres_header
     
 };
 
+#define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
+/// The GeoNetworking address that uniquely identifies a GeoNetworking entity.
+PACKED_STRUCT_DEF pico_gn_address
+{
+    uint8_t  manual: 1; ///< 0 when the address if manually configures, 1 if otherwise.
+    uint8_t  station_type: 5; ///< The type of the ITS-station.
+    uint16_t country_code: 10; ///< The ITS-station Country Code.
+    uint64_t ll_address: 48; ///< The Logic Link address of the GeoAdhoc router
+};
+
+#define PICO_SIZE_SPV ((uint32_t)sizeof(struct pico_gn_spv))
+/// The Short Position Vector containing the minimum position-related information.
+PACKED_STRUCT_DEF pico_gn_spv
+{
+    struct pico_gn_address address; ///< The GeoNetworking address of which the Position Vector originated.
+    uint32_t               timestamp; ///< The time in milliseconds at which the latitude and longitude were acuired.
+    uint32_t               latitude; ///< The latitude of the GeoAdhoc router reference position expressed in 1/10 micro degree.
+    uint32_t               longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
+};
+
+#define PICO_SIZE_LPV ((uint32_t)sizeof(struct pico_gn_lpv))
+/// The Long Position Vector containing all position-related information.
+PACKED_STRUCT_DEF pico_gn_lpv
+{
+    struct pico_gn_spv short_pv; ///< The Short Position Vector containing the GeoNetworking address, timestamp, latitude and longitude.
+    uint8_t            position_accuracy_indicator: 1; ///< Flag indicating the accuracy of the reference position. 1 when 
+    int16_t            speed: 15; ///< Speed expressed in 0.01 metre per second.
+    uint16_t           heading; ///< Heading expressed in 0.1 degree from North.
+};
+
+
 /// Interface implementation which allows allocation of a GeoNetworking frame.
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
 ///  \param size The size of the payload to be allocated.
@@ -109,37 +143,30 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size);
 ///  \param f The which needs to be processed.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f);
-
 /// Processing of an incoming Beacon packet.
 ///  \param f The frame which contains the Beacon header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_beacon_in(struct pico_frame *f);
-
 /// Processing of an incoming GeoUnicast packet.
 ///  \param f The frame which contains the GeoUnicast header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_guc_in(struct pico_frame *f);
-
 /// Processing of an incoming GeoAnycast packet.
 ///  \param f The frame which contains the GeoAnycast header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_gac_in(struct pico_frame *f);
-
 /// Processing of an incoming GeoBroadcast packet.
 ///  \param f The frame which contains the GeoBroadcast header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_gbc_in(struct pico_frame *f);
-
 /// Processing of an incoming Topologically-scoped broadcast multi-hop packet.
 ///  \param f The frame which contains the Topologically-scoped broadcast multi-hop header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_mh_in(struct pico_frame *f);
-
 /// Processing of an incoming Topologically-scoped broadcast single-hop packet.
 ///  \param f The frame which contains the Topologically-scoped broadcast single-hop header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_sh_in(struct pico_frame *f);
-
 /// Processing of an incoming Location Service packet.
 ///  \param f The frame which contains the Location Service header.
 ///  \returns 0 on success, -1 on failure.
@@ -147,13 +174,13 @@ int pico_gn_process_ls_in(struct pico_frame *f);
 
 /// Interface implementation which allows the processing of outgoing frames, from the Transport layer.
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
-///  \param f The which needs to be processed.
+///  \param f The frame which needs to be processed.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_out(struct pico_protocol *self, struct pico_frame *f);
 
 /// Interface implementation which allows ???
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
-///  \param f The which needs to be processed.
+///  \param f The frame which needs to be processed.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f);
 
@@ -161,5 +188,17 @@ int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f);
 ///  \param header The header which contains the header and subheader that will follow the Common Header.
 ///  \returns The extended header length in octets, 0 if the header type is of any type, -1 on failure.
 int pico_gn_find_extended_header_length(struct pico_gn_header *header);
+
+/// Method for determining if the received GUC, TSB, GAC, LS Request or LS Response packet is a duplicate.
+/// This is determined using a method based on the sequence number and the timestamp.
+///  \param f The frame which needs to be processed.
+///  \returns 0 when not duplicate, 1 when duplicate, -1 on failure.
+int pico_gn_detect_duplicate_SNTST_packet(struct pico_frame *f);
+
+/// Method for determining if the received BEACON or SHB is a duplicate.
+/// This is determined using a method based on the timestamp.
+///  \param f The frame which needs to be processed.
+///  \returns 0 when not duplicate, 1 when duplicate, -1 on failure.
+int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */
