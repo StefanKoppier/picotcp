@@ -6,7 +6,7 @@
  */
 
 #ifndef INCLUDE_PICO_GEONETWORKING
-#define	INCLUDE_PICO_GEONETWORKING
+#define INCLUDE_PICO_GEONETWORKING
 
 #include "pico_protocol.h"
 #include "pico_config.h"
