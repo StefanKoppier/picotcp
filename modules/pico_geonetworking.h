@@ -17,8 +17,9 @@
 #define PICO_GN_STATION_TYPE_ROADSIDE 0
 #define PICO_GN_STATION_TYPE_VEHICLE  1
 
-extern struct pico_protocol pico_proto_geonetworking;
-extern struct pico_tree     pico_gn_location_table;
+extern struct pico_protocol   pico_proto_geonetworking;
+extern struct pico_tree       pico_gn_location_table;
+extern struct pico_gn_address pico_gn_local_address;
 
 #define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
 /// The GeoNetworking address that uniquely identifies a GeoNetworking entity.
@@ -106,8 +107,8 @@ PACKED_STRUCT_DEF pico_gn_guc_header
 {
     uint16_t           sequence_number; ///< Indicates the index of the sent GUC packet and used to detect duplicate packets.
     uint16_t           reserved; ///< Reserved, should be set to 0.
-    struct pico_gn_lpv source; ///< Source Position Vector containing the reference position of the source.
-    struct pico_gn_spv destination; ///< Destination Position Vector containing the position of the destination.
+    struct pico_gn_lpv source; ///< Source Long Position Vector containing the reference position of the source.
+    struct pico_gn_spv destination; ///< Destination Short Position Vector containing the position of the destination.
 };
 
 #define PICO_SIZE_TSCHDR ((uint32_t)sizeof(struct pico_gn_tsc_header))
@@ -222,11 +223,23 @@ int pico_gn_detect_duplicate_SNTST_packet(struct pico_frame *f);
 ///  \returns 0 when not duplicate, 1 when duplicate, -1 on failure.
 int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f);
 
+/// Method for achieving uniqueness of the GeoNetworking address of the local system.
+/// This is done when a packet is received. The GeoAdhoc router checks is the received address is equals to the local address.
+/// If so, the local address shall be updated.
+///  \param f The received frame to check against.
+void pico_gn_detect_duplicate_address(struct pico_frame *f);
+
 /// Method for comparing two Location Table entries.
 /// This function is used by the pico_queue to insert, find and delete a LocTE inside the \struct pico_queue.
 ///  \param a The reference to the first \struct pico_gn_lcation_table_entry
 ///  \param b The reference to the second \struct pico_gn_lcation_table_entry
 ///  \returns -1 when a < than b, 1 when a > b, else 0
 int pico_gn_locte_compare(void *a, void *b);
+
+/// Checks if two GeoNetworking addresses are equal.
+///  \param a The reference to the first \struct pico_gn_address.
+///  \param b The reference to the second \struct pico_gn_address.
+///  \returns 1 when equal, else 0
+int pico_gn_address_equals(struct pico_gn_address *a, struct pico_gn_address *b);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */

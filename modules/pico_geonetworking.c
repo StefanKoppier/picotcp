@@ -42,6 +42,16 @@ struct pico_protocol pico_proto_geonetworking = {
 
 struct pico_tree pico_gn_location_table = { &LEAF, &pico_gn_locte_compare };
 
+/* LOCAL ADDRESS DEFINITION */
+
+// TODO: change from a static address to a dynamic address.
+struct pico_gn_address pico_gn_local_address = {
+    .manual = 1,
+    .station_type = PICO_GN_STATION_TYPE_ROADSIDE,
+    .country_code = 1,
+    .ll_address = 0xFFFFFFFFFFFF,
+};
+
 /* FRAME ALLOCATION FUNTIONS */
 
 struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
@@ -137,10 +147,37 @@ int pico_gn_process_beacon_in(struct pico_frame *f)
 
 int pico_gn_process_guc_in(struct pico_frame *f)
 {
+    //struct pico_gn_header *header = (struct pico_gn_header*)f->net_hdr;
+    struct pico_gn_guc_header *extended = (struct pico_gn_guc_header*)(f->net_hdr + PICO_SIZE_GNHDR);
     
-    
-    // TODO: Implement function
-    return -1;
+    // Check whether the packet should be received or forwarded.
+    if (pico_gn_address_equals(&extended->destination.address, &pico_gn_local_address) == 1)
+    { // Receive, this packet is for this GeoAdhoc router. 
+        
+        // Check if this packet is a duplicate.
+        int result = pico_gn_detect_duplicate_SNTST_packet(f);
+        switch (result)
+        {
+            case 0: break; // Not a duplicate, continue
+            case 1: // A duplicate, exit quietly.
+            case -1: // Failure, exit with an error code.
+                pico_frame_discard(f);
+                // TODO: set error code if result == -1
+                return result;
+        }
+        
+        // Check (and possibly update) the local address for duplicate addresses.
+        pico_gn_detect_duplicate_address(f);
+        
+        // TODO: Implement the rest of the receiving.
+        return -1;
+    }
+    else
+    { // Forward, this packet is not for this GeoAdhoc router. 
+        
+        // TODO: Implement function
+        return -1;
+    }
 }
 
 int pico_gn_process_gac_in(struct pico_frame *f)
@@ -230,6 +267,11 @@ int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f)
     return -1;
 }
 
+void pico_gn_detect_duplicate_address(struct pico_frame *f)
+{
+    // TODO: implement function
+}
+
 int pico_gn_locte_compare(void *a, void *b)
 {
     struct pico_gn_lcation_table_entry *locte_a = (struct pico_gn_lcation_table_entry*)a;
@@ -241,4 +283,12 @@ int pico_gn_locte_compare(void *a, void *b)
         return 1;
     else 
         return 0;
+}
+
+int pico_gn_address_equals(struct pico_gn_address *a, struct pico_gn_address *b)
+{
+    return a->country_code == b->country_code &&
+           a->ll_address   == b->ll_address && 
+           a->manual       == b->manual &&
+           a->station_type == b->station_type;
 }
