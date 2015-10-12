@@ -20,6 +20,16 @@
 extern struct pico_protocol pico_proto_geonetworking;
 extern struct pico_tree     pico_gn_location_table;
 
+#define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
+/// The GeoNetworking address that uniquely identifies a GeoNetworking entity.
+PACKED_STRUCT_DEF pico_gn_address
+{
+    uint8_t  manual: 1; ///< 0 when the address if manually configures, 1 if otherwise.
+    uint8_t  station_type: 5; ///< The type of the ITS-station.
+    uint16_t country_code: 10; ///< The ITS-station Country Code.
+    uint64_t ll_address: 48; ///< The Logic Link address of the GeoAdhoc router
+};
+
 #define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
 /// The Location Table entry that are contained in the Location Table
 struct pico_gn_lcation_table_entry
@@ -34,6 +44,26 @@ struct pico_gn_lcation_table_entry
     uint16_t                sequence_number; ///< The last sequence number received from this GeoNetworking address that was identified as 'not duplicated'.
     uint32_t                timestamp; ///< The timestamp of the last packet reveiced from this Geonetworking address that was identifed as 'not duplicated'.
     uint16_t                packet_data_rate; ///< The Packet data rate as Exponential Moving Average.
+};
+
+#define PICO_SIZE_SPV ((uint32_t)sizeof(struct pico_gn_spv))
+/// The Short Position Vector containing the minimum position-related information.
+PACKED_STRUCT_DEF pico_gn_spv
+{
+    struct pico_gn_address address; ///< The GeoNetworking address of which the Position Vector originated.
+    uint32_t               timestamp; ///< The time in milliseconds at which the latitude and longitude were acuired.
+    uint32_t               latitude; ///< The latitude of the GeoAdhoc router reference position expressed in 1/10 micro degree.
+    uint32_t               longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
+};
+
+#define PICO_SIZE_LPV ((uint32_t)sizeof(struct pico_gn_lpv))
+/// The Long Position Vector containing all position-related information.
+PACKED_STRUCT_DEF pico_gn_lpv
+{
+    struct pico_gn_spv short_pv; ///< The Short Position Vector containing the GeoNetworking address, timestamp, latitude and longitude.
+    uint8_t            position_accuracy_indicator: 1; ///< Flag indicating the accuracy of the reference position. 1 when 
+    int16_t            speed: 15; ///< Speed expressed in 0.01 metre per second.
+    uint16_t           heading; ///< Heading expressed in 0.1 degree from North.
 };
 
 #define PICO_SIZE_GNBASICHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
@@ -74,7 +104,10 @@ PACKED_STRUCT_DEF pico_gn_header
 /// The GeoUnicast header for GeoUnicast packets.
 PACKED_STRUCT_DEF pico_gn_guc_header
 {
-    
+    uint16_t           sequence_number; ///< Indicates the index of the sent GUC packet and used to detect duplicate packets.
+    uint16_t           reserved; ///< Reserved, should be set to 0.
+    struct pico_gn_lpv source; ///< Source Position Vector containing the reference position of the source.
+    struct pico_gn_spv destination; ///< Destination Position Vector containing the position of the destination.
 };
 
 #define PICO_SIZE_TSCHDR ((uint32_t)sizeof(struct pico_gn_tsc_header))
@@ -117,36 +150,6 @@ PACKED_STRUCT_DEF pico_gn_lsreq_header
 PACKED_STRUCT_DEF pico_gn_lsres_header
 {
     
-};
-
-#define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
-/// The GeoNetworking address that uniquely identifies a GeoNetworking entity.
-PACKED_STRUCT_DEF pico_gn_address
-{
-    uint8_t  manual: 1; ///< 0 when the address if manually configures, 1 if otherwise.
-    uint8_t  station_type: 5; ///< The type of the ITS-station.
-    uint16_t country_code: 10; ///< The ITS-station Country Code.
-    uint64_t ll_address: 48; ///< The Logic Link address of the GeoAdhoc router
-};
-
-#define PICO_SIZE_SPV ((uint32_t)sizeof(struct pico_gn_spv))
-/// The Short Position Vector containing the minimum position-related information.
-PACKED_STRUCT_DEF pico_gn_spv
-{
-    struct pico_gn_address address; ///< The GeoNetworking address of which the Position Vector originated.
-    uint32_t               timestamp; ///< The time in milliseconds at which the latitude and longitude were acuired.
-    uint32_t               latitude; ///< The latitude of the GeoAdhoc router reference position expressed in 1/10 micro degree.
-    uint32_t               longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
-};
-
-#define PICO_SIZE_LPV ((uint32_t)sizeof(struct pico_gn_lpv))
-/// The Long Position Vector containing all position-related information.
-PACKED_STRUCT_DEF pico_gn_lpv
-{
-    struct pico_gn_spv short_pv; ///< The Short Position Vector containing the GeoNetworking address, timestamp, latitude and longitude.
-    uint8_t            position_accuracy_indicator: 1; ///< Flag indicating the accuracy of the reference position. 1 when 
-    int16_t            speed: 15; ///< Speed expressed in 0.01 metre per second.
-    uint16_t           heading; ///< Heading expressed in 0.1 degree from North.
 };
 
 
