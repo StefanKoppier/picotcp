@@ -1,6 +1,7 @@
 #include "pico_geonetworking.h"
 #include "pico_frame.h"
 #include "pico_eth.h"
+#include "pico_tree.h"
 
 #define PICO_GN_HEADER_TYPE_ANY                            0
 #define PICO_GN_HEADER_TYPE_BEACON                         1
@@ -20,10 +21,11 @@
 #define PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_REQUEST 0
 #define PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_RESONSE 1
 
+/* INTERFACE PROTOCOL DEFINITION */
+
 static struct pico_queue in  = {0};
 static struct pico_queue out = {0};
 
-// Interface protocol definition 
 struct pico_protocol pico_proto_geonetworking = {
     .name = "geonetworking",
     .proto_number = PICO_PROTO_GEONETWORKING,
@@ -35,6 +37,10 @@ struct pico_protocol pico_proto_geonetworking = {
     .q_in = &in,
     .q_out = &out,
 };
+
+/* LOCATION TABLE DEFINITION */
+
+struct pico_tree pico_gn_location_table = { &LEAF, &pico_gn_locte_compare };
 
 /* FRAME ALLOCATION FUNTIONS */
 
@@ -222,4 +228,17 @@ int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f)
 {
     // TODO: Implement function
     return -1;
+}
+
+int pico_gn_locte_compare(void *a, void *b)
+{
+    struct pico_gn_lcation_table_entry *locte_a = (struct pico_gn_lcation_table_entry*)a;
+    struct pico_gn_lcation_table_entry *locte_b = (struct pico_gn_lcation_table_entry*)b;
+    
+    if (locte_a->address->ll_address < locte_b->address->ll_address)
+        return -1;
+    else if (locte_a->address->ll_address > locte_b->address->ll_address)
+        return 1;
+    else 
+        return 0;
 }

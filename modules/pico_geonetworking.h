@@ -14,9 +14,27 @@
 
 #define PICO_GN_PROTOCOL_VERSION 0 // EN 302 636-4-1 v1.2.1
 
+#define PICO_GN_STATION_TYPE_ROADSIDE 0
+#define PICO_GN_STATION_TYPE_VEHICLE  1
 
 extern struct pico_protocol pico_proto_geonetworking;
+extern struct pico_tree     pico_gn_location_table;
 
+#define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
+/// The Location Table entry that are contained in the Location Table
+struct pico_gn_lcation_table_entry
+{
+    struct pico_gn_address *address; ///< The GeoNetworking address of the ITS-station
+    uint64_t                ll_address; ///< The physical address of the ITS-station
+    uint8_t                 station_type: 1; ///< The type of the ITS-station. This value should be either PICO_GN_STATION_TYPE_ROADSIDE or PICO_GN_STATION_TYPE_VEHICLE
+    uint8_t                 proto_version: 4; ///< The protocol version executed by the ITS-station.
+    struct pico_gn_lpv     *long_position_vector; ///< The Long Position Vector of the ITS-station. The GeoNetworking address might not be set.
+    uint8_t                 location_service_pending: 1; ///< Flag indicating that a Location Service for this GeoNetworking address is in progress.
+    uint8_t                 is_neighbour: 1; ///< Flag indicating that the GeoAdhoc router is a direct neighbour.
+    uint16_t                sequence_number; ///< The last sequence number received from this GeoNetworking address that was identified as 'not duplicated'.
+    uint32_t                timestamp; ///< The timestamp of the last packet reveiced from this Geonetworking address that was identifed as 'not duplicated'.
+    uint16_t                packet_data_rate; ///< The Packet data rate as Exponential Moving Average.
+};
 
 #define PICO_SIZE_GNBASICHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
 /// The Basic Header is a header present in every GeoNetworking packet.
@@ -200,5 +218,12 @@ int pico_gn_detect_duplicate_SNTST_packet(struct pico_frame *f);
 ///  \param f The frame which needs to be processed.
 ///  \returns 0 when not duplicate, 1 when duplicate, -1 on failure.
 int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f);
+
+/// Method for comparing two Location Table entries.
+/// This function is used by the pico_queue to insert, find and delete a LocTE inside the \struct pico_queue.
+///  \param a The reference to the first \struct pico_gn_lcation_table_entry
+///  \param b The reference to the second \struct pico_gn_lcation_table_entry
+///  \returns -1 when a < than b, 1 when a > b, else 0
+int pico_gn_locte_compare(void *a, void *b);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */
