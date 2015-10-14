@@ -1134,6 +1134,10 @@ int pico_stack_init(void)
 #ifdef PICO_SUPPORT_IPV6
     pico_protocol_init(&pico_proto_ipv6);
 #endif
+    
+#ifdef PICO_SUPPORT_GEONETWORKING
+    pico_protocol_init(&pico_proto_geonetworking);
+#endif
 
 #ifdef PICO_SUPPORT_ICMP4
     pico_protocol_init(&pico_proto_icmp4);
