@@ -17,6 +17,12 @@
 #define PICO_GN_STATION_TYPE_ROADSIDE 0
 #define PICO_GN_STATION_TYPE_VEHICLE  1
 
+#define PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY   0
+#define PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A 1
+#define PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B 2
+#define PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6  3
+
+
 extern struct pico_protocol   pico_proto_geonetworking;
 extern struct pico_tree       pico_gn_location_table;
 extern struct pico_gn_address pico_gn_local_address;
@@ -33,13 +39,13 @@ PACKED_STRUCT_DEF pico_gn_address
 
 #define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
 /// The Location Table entry that are contained in the Location Table
-struct pico_gn_lcation_table_entry
+struct pico_gn_location_table_entry
 {
     struct pico_gn_address *address; ///< The GeoNetworking address of the ITS-station
-    uint64_t                ll_address; ///< The physical address of the ITS-station
+    uint64_t                ll_address: 48; ///< The physical address of the ITS-station
     uint8_t                 station_type: 1; ///< The type of the ITS-station. This value should be either PICO_GN_STATION_TYPE_ROADSIDE or PICO_GN_STATION_TYPE_VEHICLE
     uint8_t                 proto_version: 4; ///< The protocol version executed by the ITS-station.
-    struct pico_gn_lpv     *long_position_vector; ///< The Long Position Vector of the ITS-station. The GeoNetworking address might not be set.
+    struct pico_gn_lpv     *position_vector; ///< The Long Position Vector of the ITS-station. The GeoNetworking address might not be set.
     uint8_t                 location_service_pending: 1; ///< Flag indicating that a Location Service for this GeoNetworking address is in progress.
     uint8_t                 is_neighbour: 1; ///< Flag indicating that the GeoAdhoc router is a direct neighbour.
     uint16_t                sequence_number; ///< The last sequence number received from this GeoNetworking address that was identified as 'not duplicated'.
@@ -47,7 +53,7 @@ struct pico_gn_lcation_table_entry
     uint16_t                packet_data_rate; ///< The Packet data rate as Exponential Moving Average.
 };
 
-#define PICO_SIZE_SPV ((uint32_t)sizeof(struct pico_gn_spv))
+#define PICO_SIZE_GNSPV ((uint32_t)sizeof(struct pico_gn_spv))
 /// The Short Position Vector containing the minimum position-related information.
 PACKED_STRUCT_DEF pico_gn_spv
 {
@@ -57,7 +63,7 @@ PACKED_STRUCT_DEF pico_gn_spv
     uint32_t               longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
 };
 
-#define PICO_SIZE_LPV ((uint32_t)sizeof(struct pico_gn_lpv))
+#define PICO_SIZE_GNLPV ((uint32_t)sizeof(struct pico_gn_lpv))
 /// The Long Position Vector containing all position-related information.
 PACKED_STRUCT_DEF pico_gn_lpv
 {
@@ -82,7 +88,7 @@ PACKED_STRUCT_DEF pico_gn_basic_header
 /// The Common Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_common_header
 {
-    uint8_t  next_header: 4; ///< Identifies the type of header immediately following the GeoNetworking headers.
+    uint8_t  next_header: 4; ///< Identifies the type of header immediately following the GeoNetworking headers. This value should be one of the following: PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B or PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6
     uint8_t  reserved_1: 4; ///< Reserved should be set to 0.
     uint8_t  header: 4; ///< Identifies the type of the GeoNetworking extended header.
     uint8_t  subheader: 4; ///< Identifies the sub-type of the GeoNetworking extended header.
@@ -153,6 +159,13 @@ PACKED_STRUCT_DEF pico_gn_lsres_header
     
 };
 
+#define PICO_SIZE_GNDATA_INDICATION ((uint32_t)sizeof(struct pico_gn_data_indication))
+/// The GN-DATA.indication primitive which contains information about the received GeoNetworking packet.
+PACKED_STRUCT_DEF pico_gn_data_indication
+{
+    
+};
+
 
 /// Interface implementation which allows allocation of a GeoNetworking frame.
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
@@ -206,6 +219,27 @@ int pico_gn_process_out(struct pico_protocol *self, struct pico_frame *f);
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f);
 
+/// Method that tries to find a \struct pico_gn_location_table_entry inside the Location Table using a \struct pico_gn_address.
+///  \param address The address that should be searched for.
+///  \returns The sought LocTE, NULL if not found.
+struct pico_gn_location_table_entry* pico_gn_loct_find(struct pico_gn_address *address);
+
+/// Method for updating a \struct pico_gn_location_table_entry with a new \struct pico_gn_lpv.
+///  \param address The address of which the \struct pico_gn_lpv should be updated.
+///  \param vector The new \struct pico_gn_lpv which contains the new values.
+///  \param is_neighbour Flag determining if this \struct pico_gn_lpv is a direct neighbour.
+///  \param sequence_number The sequence number of the last received packet from this address which was not found to be a duplicate.
+///  \param station_type Flag determining if the station is PICO_GN_STATION_TYPE_ROADSIDE or PICO_GN_STATION_TYPE_VEHICLE
+///  \param timestamp The timestamp of the last received packet from this address which was not found to be a duplicate.
+///  \returns 0 on success, -1 when the /struct pico_gn_address is not found
+int pico_gn_loct_update(struct pico_gn_address *address, struct pico_gn_lpv *vector, uint8_t is_neighbour, uint16_t sequence_number, uint8_t station_type, uint32_t timestamp);
+
+/// Method for adding a \struct pico_gn_location_table_entry to the Location Table
+/// When the Table already contains an entry for the \struct pico_gn_address, the existing entry shall be returned.
+///  \param address The address for which the \struct pico_gn_lpv should be added.
+///  \returns A pointer to the inserted or existing \struct pico_gn_location_table_entry, NULL on failure.
+struct pico_gn_location_table_entry *pico_gn_loct_add(struct pico_gn_address *address);
+
 /// Determines the size of the extended header according to the header and subheader fields of the Common Header.
 ///  \param header The header which contains the header and subheader that will follow the Common Header.
 ///  \returns The extended header length in octets, 0 if the header type is of any type, -1 on failure.
@@ -231,8 +265,8 @@ void pico_gn_detect_duplicate_address(struct pico_frame *f);
 
 /// Method for comparing two Location Table entries.
 /// This function is used by the pico_queue to insert, find and delete a LocTE inside the \struct pico_queue.
-///  \param a The reference to the first \struct pico_gn_lcation_table_entry
-///  \param b The reference to the second \struct pico_gn_lcation_table_entry
+///  \param a The reference to the first \struct pico_gn_location_table_entry
+///  \param b The reference to the second \struct pico_gn_location_table_entry
 ///  \returns -1 when a < than b, 1 when a > b, else 0
 int pico_gn_locte_compare(void *a, void *b);
 
