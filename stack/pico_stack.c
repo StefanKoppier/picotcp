@@ -386,7 +386,7 @@ static int32_t pico_ipv6_ethernet_receive(struct pico_frame *f)
 static int32_t pico_gn_ethernet_receive(struct pico_frame *f)
 {
     if (IS_GN(f)) {
-        pico_enqueue(pico_proto_ipv6.q_in, f);
+        pico_enqueue(pico_proto_geonetworking.q_in, f);
     } else {
         pico_frame_discard(f);
         return -1;
