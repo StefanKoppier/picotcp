@@ -25,8 +25,8 @@
 
 /* INTERFACE PROTOCOL DEFINITION */
 
-static struct pico_queue in  = {0};
-static struct pico_queue out = {0};
+static struct pico_queue gn_in  = {0}; // Incoming frame queue
+static struct pico_queue gn_out = {0}; // Outgoing frame queue
 
 struct pico_protocol pico_proto_geonetworking = {
     .name = "geonetworking",
@@ -36,8 +36,8 @@ struct pico_protocol pico_proto_geonetworking = {
     .process_in = pico_gn_process_in,
     .process_out = pico_gn_process_out,
     .push = pico_gn_frame_sock_push,
-    .q_in = &in,
-    .q_out = &out,
+    .q_in = &gn_in,
+    .q_out = &gn_out,
 };
 
 /* LOCATION TABLE DEFINITION */
