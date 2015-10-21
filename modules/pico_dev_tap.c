@@ -80,7 +80,10 @@ void pico_tap_destroy(struct pico_device *dev)
 {
     struct pico_device_tap *tap = (struct pico_device_tap *) dev;
     if(tap->fd > 0)
+    {
         close(tap->fd);
+        dbg("Device %s destroyed.\n", tap->dev.name);
+    }
 }
 
 #ifndef __FreeBSD__
@@ -93,7 +96,7 @@ static int tap_open(char *name)
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
+    ifr.ifr_flags = IFF_TAP | IFF_NO_PI | IFF_MULTI_QUEUE;
     strncpy(ifr.ifr_name, name, IFNAMSIZ);
     if(ioctl(tap_fd, TUNSETIFF, &ifr) < 0) {
         return(-1);
