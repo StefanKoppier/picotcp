@@ -14,8 +14,19 @@
 
 #define PICO_GN_PROTOCOL_VERSION 0 // EN 302 636-4-1 v1.2.1
 
-#define PICO_GN_STATION_TYPE_ROADSIDE 0
-#define PICO_GN_STATION_TYPE_VEHICLE  1
+#define PICO_GN_STATION_TYPE_UNKNOWN         0
+#define PICO_GN_STATION_TYPE_PEDESTRIAN      1
+#define PICO_GN_STATION_TYPE_CYCLIST         2
+#define PICO_GN_STATION_TYPE_MOPED           3
+#define PICO_GN_STATION_TYPE_MOTORCYCLE      4
+#define PICO_GN_STATION_TYPE_PASSENGER_CAR   5
+#define PICO_GN_STATION_TYPE_BUS             6
+#define PICO_GN_STATION_TYPE_LIGHT_TRUCK     7
+#define PICO_GN_STATION_TYPE_HEAVY_TRUCK     8
+#define PICO_GN_STATION_TYPE_TRAILER         9
+#define PICO_GN_STATION_TYPE_SPECIAL_VEHICLE 10
+#define PICO_GN_STATION_TYPE_TRAM            11
+#define PICO_GN_STATION_TYPE_ROADSIDE_UNIT   15
 
 #define PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY   0
 #define PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A 1
@@ -23,9 +34,16 @@
 #define PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6  3
 
 
-extern struct pico_protocol   pico_proto_geonetworking;
-extern struct pico_tree       pico_gn_location_table;
-extern struct pico_gn_address pico_gn_local_address;
+extern struct pico_protocol pico_proto_geonetworking;
+extern struct pico_tree     pico_gn_loct;
+
+/// The method used to configure the GeoAdhoc router's GeoNetworking address.
+enum pico_gn_address_conf_method
+{
+    AUTO = 0, ///< Auto-address configuration. Generate a random address.
+    MANAGED = 1, ///< Managed address configuration. Request an address from the ITS Networking & Transport Layer Management entity. \bug This feature is not supported.
+    ANONYMOUS = 2 ///< Anonymous address configuration. Request an address from the security entity. \bug This feature is not supported.
+};
 
 #define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
 /// The GeoNetworking address that uniquely identifies a GeoNetworking entity.
@@ -34,7 +52,7 @@ PACKED_STRUCT_DEF pico_gn_address
     uint8_t  manual: 1; ///< 0 when the address if manually configures, 1 if otherwise.
     uint8_t  station_type: 5; ///< The type of the ITS-station.
     uint16_t country_code: 10; ///< The ITS-station Country Code.
-    uint64_t ll_address: 48; ///< The Logic Link address of the GeoAdhoc router
+    uint64_t mid: 48; ///< The field representing the Logic Link Address.
 };
 
 #define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
@@ -51,6 +69,14 @@ struct pico_gn_location_table_entry
     uint16_t                sequence_number; ///< The last sequence number received from this GeoNetworking address that was identified as 'not duplicated'.
     uint32_t                timestamp; ///< The timestamp of the last packet reveiced from this Geonetworking address that was identifed as 'not duplicated'.
     uint16_t                packet_data_rate; ///< The Packet data rate as Exponential Moving Average.
+};
+
+#define PICO_SIZE_GNLINK ((uint32_t)sizeof(struct pico_gn_link))
+/// The link between the \struct pico_device and the \struct pico_gn_address
+struct pico_gn_link
+{
+    struct pico_device *dev; ///< The device which the address is coupled to.
+    struct pico_gn_address address; ///< The address which the device is coupled to.
 };
 
 #define PICO_SIZE_GNSPV ((uint32_t)sizeof(struct pico_gn_spv))
@@ -166,6 +192,34 @@ PACKED_STRUCT_DEF pico_gn_data_indication
     
 };
 
+/// Function for adding this \struct pico_device to the GeoAdhoc router.
+/// This function will create the GeoNetworking address according to the \struct pico_gn_address_config_method given.
+///  \param dev The device to add to the GeoAdhoc router.
+///  \param method The configuration method used to create the GeoNetworking address.
+///  \param station_type The type of ITS-station. This value should be one of the following: PICO_GN_STATION_TYPE_UNKNOWN, PICO_GN_STATION_TYPE_PEDESTRIAN, PICO_GN_STATION_TYPE_CYCLIST, PICO_GN_STATION_TYPE_MOPED, PICO_GN_STATION_TYPE_MOTORCYCLE, PICO_GN_STATION_TYPE_PASSENGER_CAR, PICO_GN_STATION_TYPE_BUS, PICO_GN_STATION_TYPE_LIGHT_TRUCK, PICO_GN_STATION_TYPE_HEAVY_TRUCK, PICO_GN_STATION_TYPE_TRAILER, PICO_GN_STATION_TYPE_SPECIAL_VEHICLE, PICO_GN_STATION_TYPE_TRAM or PICO_GN_STATION_TYPE_ROADSIDE_UNIT.
+///  \param country_code The country code of the ITS-station as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001.
+///  \returns 0 on success, else -1.
+int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method method, uint8_t station_type, uint16_t country_code);
+
+/// Function for creating a GeoNetworking address with a random MID field.
+///  \param result The result of this function as a \struct pico_gn_address.
+///  \param station_type The type of ITS-station. This value should be one of the following: PICO_GN_STATION_TYPE_UNKNOWN, PICO_GN_STATION_TYPE_PEDESTRIAN, PICO_GN_STATION_TYPE_CYCLIST, PICO_GN_STATION_TYPE_MOPED, PICO_GN_STATION_TYPE_MOTORCYCLE, PICO_GN_STATION_TYPE_PASSENGER_CAR, PICO_GN_STATION_TYPE_BUS, PICO_GN_STATION_TYPE_LIGHT_TRUCK, PICO_GN_STATION_TYPE_HEAVY_TRUCK, PICO_GN_STATION_TYPE_TRAILER, PICO_GN_STATION_TYPE_SPECIAL_VEHICLE, PICO_GN_STATION_TYPE_TRAM or PICO_GN_STATION_TYPE_ROADSIDE_UNIT.
+///  \param country_code The country code of the ITS-station as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001.
+///  \returns 0 on success, -1 on failure.
+int pico_gn_create_address_auto(struct pico_gn_address *result, uint8_t station_type, uint16_t country_code);
+
+/// Function for fetching a GeoNetworking address from the ITS Networking & Transport Layer Management entity.
+///  \bug Not implemented.
+///  \param result The result of this function as a \struct pico_gn_address. This value will be unchanged by this function.
+///  \returns -1.
+int pico_gn_create_address_managed(struct pico_gn_address *result);
+
+/// Function for fetching a GeoNetworking address from the security entity.
+///  \bug Not implemented.
+///  \param result The result of this function as a \struct pico_gn_address. This value will be unchanged by this function.
+///  \returns -1.
+int pico_gn_create_address_anonymous(struct pico_gn_address *result);
+
 
 /// Interface implementation which allows allocation of a GeoNetworking frame.
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
@@ -263,8 +317,15 @@ int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f);
 ///  \param f The received frame to check against.
 void pico_gn_detect_duplicate_address(struct pico_frame *f);
 
+/// Method for comparing two \struct pico_gn_link structs.
+/// This function is used by the \struct pico_tree to insert, find and delete a LocTE inside the \struct pico_tree.
+///  \param a The reference to the first \struct pico_gn_link.
+///  \param b The reference to the second \struct pico_gn_link.
+///  \returns -1 when a < than b, 1 when a > b, else 0
+static int pico_gn_link_compare(void *a, void *b);
+
 /// Method for comparing two Location Table entries.
-/// This function is used by the pico_queue to insert, find and delete a LocTE inside the \struct pico_queue.
+/// This function is used by the \struct pico_tree to insert, find and delete a LocTE inside the \struct pico_tree.
 ///  \param a The reference to the first \struct pico_gn_location_table_entry
 ///  \param b The reference to the second \struct pico_gn_location_table_entry
 ///  \returns -1 when a < than b, 1 when a > b, else 0
