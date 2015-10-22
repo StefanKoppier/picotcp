@@ -3,8 +3,6 @@
 #include "pico_eth.h"
 #include "pico_tree.h"
 
-#define DEBUG_MSSG
-
 #define PICO_GN_HEADER_TYPE_ANY                            0
 #define PICO_GN_HEADER_TYPE_BEACON                         1
 #define PICO_GN_HEADER_TYPE_GEOUNICAST                     2
@@ -61,9 +59,7 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
     struct pico_frame *f = pico_frame_alloc(PICO_SIZE_ETHHDR + PICO_SIZE_GNHDR /* + Specific extended header size */ + size);
     IGNORE_PARAMETER(self);
     
-#ifdef DEBUG_MSSG
-    printf("pico_gn_alloc.\n");
-#endif
+    dbg("pico_gn_alloc.\n");
     
     if (!f)
         return NULL;
@@ -85,9 +81,7 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     int extended_length = pico_gn_find_extended_header_length(h);    
     IGNORE_PARAMETER(self);
     
-#ifdef DEBUG_MSSG
-    printf("pico_gn_process_in.\n");
-#endif
+    dbg("pico_gn_process_in\n");
         
     if (!h || extended_length < 0)
         return -1;
@@ -258,9 +252,7 @@ int pico_gn_process_ls_in(struct pico_frame *f)
 
 int pico_gn_process_out(struct pico_protocol *self, struct pico_frame *f)
 {
-#ifdef DEBUG_MSSG
-    printf("pico_gn_process_out.\n");
-#endif
+    dbg("pico_gn_process_out.\n");
     
     // TODO: Implement function
     return -1;

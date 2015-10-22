@@ -241,6 +241,7 @@ MOCKABLE int32_t pico_transport_receive(struct pico_frame *f, uint8_t proto)
 
 int32_t pico_network_receive(struct pico_frame *f)
 {
+    dbg("\tpico_network_receive");
     if (0) {}
 
 #ifdef PICO_SUPPORT_IPV4
@@ -754,6 +755,8 @@ int32_t pico_stack_recv(struct pico_device *dev, uint8_t *buffer, uint32_t len)
     int32_t ret;
     if (len == 0)
         return -1;
+    
+    dbg("\tpico_stack_recv");
 
     f = pico_frame_alloc(len);
     if (!f)
