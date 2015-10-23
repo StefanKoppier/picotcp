@@ -51,7 +51,7 @@ PACKED_STRUCT_DEF pico_gn_address
 {
     uint8_t  manual: 1; ///< 0 when the address if manually configures, 1 if otherwise.
     uint8_t  station_type: 5; ///< The type of the ITS-station.
-    uint16_t country_code: 10; ///< The ITS-station Country Code.
+    uint16_t country_code: 10; ///< The ITS-station country code  as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001'.
     uint64_t mid: 48; ///< The field representing the Logic Link Address.
 };
 
@@ -197,14 +197,14 @@ PACKED_STRUCT_DEF pico_gn_data_indication
 ///  \param dev The device to add to the GeoAdhoc router.
 ///  \param method The configuration method used to create the GeoNetworking address.
 ///  \param station_type The type of ITS-station. This value should be one of the following: PICO_GN_STATION_TYPE_UNKNOWN, PICO_GN_STATION_TYPE_PEDESTRIAN, PICO_GN_STATION_TYPE_CYCLIST, PICO_GN_STATION_TYPE_MOPED, PICO_GN_STATION_TYPE_MOTORCYCLE, PICO_GN_STATION_TYPE_PASSENGER_CAR, PICO_GN_STATION_TYPE_BUS, PICO_GN_STATION_TYPE_LIGHT_TRUCK, PICO_GN_STATION_TYPE_HEAVY_TRUCK, PICO_GN_STATION_TYPE_TRAILER, PICO_GN_STATION_TYPE_SPECIAL_VEHICLE, PICO_GN_STATION_TYPE_TRAM or PICO_GN_STATION_TYPE_ROADSIDE_UNIT.
-///  \param country_code The country code of the ITS-station as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001.
+///  \param country_code The country code of the ITS-station as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001'.
 ///  \returns 0 on success, else -1.
 int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method method, uint8_t station_type, uint16_t country_code);
 
 /// Function for creating a GeoNetworking address with a random MID field.
 ///  \param result The result of this function as a \struct pico_gn_address.
 ///  \param station_type The type of ITS-station. This value should be one of the following: PICO_GN_STATION_TYPE_UNKNOWN, PICO_GN_STATION_TYPE_PEDESTRIAN, PICO_GN_STATION_TYPE_CYCLIST, PICO_GN_STATION_TYPE_MOPED, PICO_GN_STATION_TYPE_MOTORCYCLE, PICO_GN_STATION_TYPE_PASSENGER_CAR, PICO_GN_STATION_TYPE_BUS, PICO_GN_STATION_TYPE_LIGHT_TRUCK, PICO_GN_STATION_TYPE_HEAVY_TRUCK, PICO_GN_STATION_TYPE_TRAILER, PICO_GN_STATION_TYPE_SPECIAL_VEHICLE, PICO_GN_STATION_TYPE_TRAM or PICO_GN_STATION_TYPE_ROADSIDE_UNIT.
-///  \param country_code The country code of the ITS-station as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001.
+///  \param country_code The country code of the ITS-station as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001'.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_create_address_auto(struct pico_gn_address *result, uint8_t station_type, uint16_t country_code);
 

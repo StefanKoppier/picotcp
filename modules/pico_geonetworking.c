@@ -83,6 +83,7 @@ int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method m
     }
     
     pico_tree_insert(&pico_gn_dev_link, &link);
+    return 0;
 }
 
 int pico_gn_create_address_auto(struct pico_gn_address* result, uint8_t station_type, uint16_t country_code)
@@ -421,16 +422,16 @@ int pico_gn_find_extended_header_length(struct pico_gn_header *header)
     case PICO_GN_HEADER_TYPE_TOPOLOGICALLY_SCOPED_BROADCAST:
         switch (header->common_header.subheader)
         {
-            case PICO_GN_SUBHEADER_TYPE_TSB_MULTI_HOP: return PICO_SIZE_TSCHDR;
-            case PICO_GN_SUBHEADER_TYPE_TSB_SINGLE_HOP: return PICO_SIZE_SHBHDR;
-            default: return -1;
+        case PICO_GN_SUBHEADER_TYPE_TSB_MULTI_HOP: return PICO_SIZE_TSCHDR;
+        case PICO_GN_SUBHEADER_TYPE_TSB_SINGLE_HOP: return PICO_SIZE_SHBHDR;
+        default: return -1;
         }
     case PICO_GN_HEADER_TYPE_LOCATION_SERVICE:
         switch (header->common_header.subheader)
         {
-            case PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_REQUEST: return PICO_SIZE_BEACONHDR;
-            case PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_RESONSE: return PICO_SIZE_BEACONHDR;
-            default: return -1;
+        case PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_REQUEST: return PICO_SIZE_BEACONHDR;
+        case PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_RESONSE: return PICO_SIZE_BEACONHDR;
+        default: return -1;
         }
     default: return -1;
     }
