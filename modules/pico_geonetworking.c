@@ -88,7 +88,7 @@ int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method m
 
 int pico_gn_create_address_auto(struct pico_gn_address* result, uint8_t station_type, uint16_t country_code)
 {
-    result->manual = 0;
+    result->manual = 0; // Should be 1?
     result->station_type = station_type;
     result->country_code = country_code;
     result->mid = (((uint64_t)pico_rand()) << 32) | ((uint64_t)pico_rand());
@@ -134,7 +134,7 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
 int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
 {
     struct pico_gn_header *h = (struct pico_gn_header*) f->net_hdr;
-    int extended_length = pico_gn_find_extended_header_length(h);    
+    int extended_length = pico_gn_find_extended_header_length(h);
     IGNORE_PARAMETER(self);
     
     dbg("pico_gn_process_in\n");
@@ -157,7 +157,7 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     
     // Check if the next header is a Common Header
     if (!(h->basic_header.next_header == 0 ||
-          h->basic_header.next_header == 1))
+          h->basic_header.next_header == 1)) // Change these two numbers to #defines?
     { 
         // Packet is a Secured Packet (2) which is not supported yet, or invalid (>2). Throw it away
         pico_frame_discard(f);
@@ -342,11 +342,10 @@ int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
 /* LOCATION TABLE FUNCTIONS */
 struct pico_gn_location_table_entry* pico_gn_loct_find(struct pico_gn_address *address)
 {
-    struct pico_gn_location_table_entry *entry;
     struct pico_tree_node *index;
     
     pico_tree_foreach(index, &pico_gn_loct) {
-        entry = (struct pico_gn_location_table_entry*)index->keyValue;
+        struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
         
         if (pico_gn_address_equals(address, entry->address))
             return entry;
