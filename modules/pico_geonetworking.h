@@ -99,25 +99,26 @@ PACKED_STRUCT_DEF pico_gn_lpv
     uint16_t           heading; ///< Heading expressed in 0.1 degree from North.
 };
 
+#define PICO_GET_GNBASICHDR_VERSION(x) ((x & 0xF0) >> 4)
+#define PICO_GET_GNBASICHDR_NEXT_HEADER(x) (x & 0x0F)
 #define PICO_SIZE_GNBASICHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
 /// The Basic Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_basic_header 
 {
-    uint8_t version: 4; ///< Identifies the version of the GeoNetworking protocol.
-    uint8_t next_header: 4; ///< Identifies the header immediately following the GeoNetworking Basic Header.
+    uint8_t vnh; ///< The first four bits represent the version of the GeoNetworking protocol. The last four bits identifies the header immediately following the GeoNetworking Basic Header.
     uint8_t reserved; ///< Reserved, should be set to 0.
     uint8_t lifetime; ///< Indicates the maximum tolerable time a packet can be buffered until it reaches its destination.
     uint8_t remaining_hop_limit; ///< Decrembented by 1 by each GeoAdhoc router that forwards the packet. The packet shall not be forwarded if RHL is decremented to zero.
 };
 
+#define PICO_GET_GNCOMMONHDR_HEADER(x) ((x & 0xF0) >> 4)
+#define PICO_GET_GNCOMMONHDR_SUBHEADER(x) (x & 0x0F)
 #define PICO_SIZE_GNCOMMONHDR ((uint32_t)sizeof(struct pico_gn_common_header))
 /// The Common Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_common_header
 {
-    uint8_t  next_header: 4; ///< Identifies the type of header immediately following the GeoNetworking headers. This value should be one of the following: PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B or PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6
-    uint8_t  reserved_1: 4; ///< Reserved should be set to 0.
-    uint8_t  header: 4; ///< Identifies the type of the GeoNetworking extended header.
-    uint8_t  subheader: 4; ///< Identifies the sub-type of the GeoNetworking extended header.
+    uint8_t  next_header; ///< The first four bits identify the type of header immediately following the GeoNetworking headers. This value should be one of the following: PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B or PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6. The last four bits are reserved and must be set to 0.
+    uint8_t  header; ///< The first four bits identify the type of the GeoNetworking extended header The last four bits identify the sub-type of the GeoNetworking extended header.
     uint8_t  traffic_class; ///< Traffic class that represents Facility-layer requirements on packet transport.
     uint8_t  flags; ///< Bit 0: Indicates whether the ITS-S is mobile or stationary. Bit 1 to 7: Reserved, should be set to 0.
     uint16_t payload_length; ///< Length of the GeoNetworking payload, i.e. the rest of the packet following the whole GeoNetworking header in octets.

@@ -48,6 +48,17 @@ PICO_TREE_DECLARE(pico_gn_loct, pico_gn_locte_compare);
 
 PICO_TREE_DECLARE(pico_gn_dev_link, pico_gn_link_compare);
 
+/* DEBUG PRINT FUNCTIONS */
+inline void pico_gn_print_header(struct pico_gn_header* h)
+{
+    dbg("%d %d %d %d %d\n", 
+            PICO_GET_GNBASICHDR_VERSION(h->basic_header.vnh), 
+            PICO_GET_GNBASICHDR_NEXT_HEADER(h->basic_header.vnh),
+            h->basic_header.reserved, 
+            h->basic_header.lifetime, 
+            h->basic_header.remaining_hop_limit);
+}
+
 /* LOCAL ADDRESS AND DEVICE LINK FUCNTIONS */
 
 int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method method, uint8_t station_type, uint16_t country_code)
@@ -136,30 +147,35 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     struct pico_gn_header *h = (struct pico_gn_header*) f->net_hdr;
     int extended_length = pico_gn_find_extended_header_length(h);
     IGNORE_PARAMETER(self);
-    
-    dbg("pico_gn_process_in\n");
-        
+            
     if (!h || extended_length < 0)
+    {
+        dbg("No header or an invalid extended header.\n");
         return -1;
+    }
     
     f->transport_hdr = f->net_hdr + PICO_SIZE_GNHDR + extended_length;
     // Not sure if the next line is correct.
     f->transport_len = (uint16_t)(f->buffer_len - h->common_header.payload_length - PICO_SIZE_GNHDR - (uint16_t)extended_length);
     f->net_len = (uint16_t)(PICO_SIZE_GNHDR + (uint16_t)extended_length);
     
+    pico_gn_print_header(h);
+    
     // BASIC HEADER PROCESSING
     // Check if the GeoNetworking version of the received packet is compatible.
-    if (h->basic_header.version != PICO_GN_PROTOCOL_VERSION)
+    if (PICO_GET_GNBASICHDR_VERSION(h->basic_header.vnh) != PICO_GN_PROTOCOL_VERSION)
     {
+        dbg("Invalid GeoNetworking protocol version: %d.\n", PICO_GET_GNBASICHDR_VERSION(h->basic_header.vnh));
         pico_frame_discard(f);
         return 0;
     }
     
     // Check if the next header is a Common Header
-    if (!(h->basic_header.next_header == 0 ||
-          h->basic_header.next_header == 1)) // Change these two numbers to #defines?
+    if (!(PICO_GET_GNBASICHDR_NEXT_HEADER(h->basic_header.vnh) == 0 ||
+          PICO_GET_GNBASICHDR_NEXT_HEADER(h->basic_header.vnh) == 1)) // Change these two numbers to #defines?
     { 
         // Packet is a Secured Packet (2) which is not supported yet, or invalid (>2). Throw it away
+        dbg("The header following the Basic Header is either a secured header (not supported) or invalid.\n");
         pico_frame_discard(f);
         return 0;
     }
@@ -168,6 +184,7 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     // Check if the Maximum Hop Limit is reached, if so throw it away.
     if (h->common_header.maximum_hop_limit < h->basic_header.remaining_hop_limit)
     {
+        dbg("Maximimum hop limit of the packet is exceeded.\n");
         pico_frame_discard(f);
         return 0;
     }
@@ -175,24 +192,26 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     // TODO: Process the Broadcast forwarding packet buffer (page 41)
     
     // EXTENDED HEADER PROCESSING
-    switch (h->common_header.header)
+    switch (PICO_GET_GNCOMMONHDR_HEADER(h->common_header.header))
     {
     case PICO_GN_HEADER_TYPE_BEACON: return pico_gn_process_beacon_in(f);
     case PICO_GN_HEADER_TYPE_GEOUNICAST: return pico_gn_process_guc_in(f);
     case PICO_GN_HEADER_TYPE_GEOANYCAST: return pico_gn_process_gac_in(f);
     case PICO_GN_HEADER_TYPE_GEOBROADCAST: return pico_gn_process_gbc_in(f);
     case PICO_GN_HEADER_TYPE_TOPOLOGICALLY_SCOPED_BROADCAST: 
-        switch (h->common_header.subheader)
+        switch (PICO_GET_GNCOMMONHDR_HEADER(h->common_header.header))
         {
         case PICO_GN_SUBHEADER_TYPE_TSB_MULTI_HOP: return pico_gn_process_mh_in(f); 
         case PICO_GN_SUBHEADER_TYPE_TSB_SINGLE_HOP: return pico_gn_process_sh_in(f); 
         default: // Invalid sub-header, discard the packet
+            dbg("Invalid TSB sub-header: %d.\n", PICO_GET_GNCOMMONHDR_SUBHEADER(h->common_header.header));
             pico_frame_discard(f);
             return 0;
         }
     case PICO_GN_HEADER_TYPE_LOCATION_SERVICE: return pico_gn_process_ls_in(f);
     case PICO_GN_HEADER_TYPE_ANY:
     default: // Invalid header type, discard the packet
+        dbg("Invalid header type: %d.\n", PICO_GET_GNCOMMONHDR_HEADER(h->common_header.header));
         pico_frame_discard(f);
         return 0;
     }
@@ -216,6 +235,8 @@ int pico_gn_process_guc_in(struct pico_frame *f)
     struct pico_gn_link *entry;
     struct pico_tree_node *index;
     int found_in_devices = 0;
+    
+    dbg("pico_gn_process_guc_in.\n");
     
     pico_tree_foreach(index, &pico_gn_dev_link) {
         entry = (struct pico_gn_link*)index->keyValue;
@@ -411,7 +432,7 @@ struct pico_gn_location_table_entry *pico_gn_loct_add(struct pico_gn_address *ad
 
 int pico_gn_find_extended_header_length(struct pico_gn_header *header)
 {
-    switch (header->common_header.header)
+    switch (PICO_GET_GNCOMMONHDR_HEADER(header->common_header.header))
     {
     case PICO_GN_HEADER_TYPE_ANY: return 0;
     case PICO_GN_HEADER_TYPE_BEACON: return PICO_SIZE_BEACONHDR;
@@ -419,14 +440,14 @@ int pico_gn_find_extended_header_length(struct pico_gn_header *header)
     case PICO_GN_HEADER_TYPE_GEOANYCAST: return PICO_SIZE_GBCHDR;
     case PICO_GN_HEADER_TYPE_GEOBROADCAST: return PICO_SIZE_GBCHDR;
     case PICO_GN_HEADER_TYPE_TOPOLOGICALLY_SCOPED_BROADCAST:
-        switch (header->common_header.subheader)
+        switch (PICO_GET_GNCOMMONHDR_SUBHEADER(header->common_header.header))
         {
         case PICO_GN_SUBHEADER_TYPE_TSB_MULTI_HOP: return PICO_SIZE_TSCHDR;
         case PICO_GN_SUBHEADER_TYPE_TSB_SINGLE_HOP: return PICO_SIZE_SHBHDR;
         default: return -1;
         }
     case PICO_GN_HEADER_TYPE_LOCATION_SERVICE:
-        switch (header->common_header.subheader)
+        switch (PICO_GET_GNCOMMONHDR_SUBHEADER(header->common_header.header))
         {
         case PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_REQUEST: return PICO_SIZE_BEACONHDR;
         case PICO_GN_SUBHEADER_TYPE_LOCATION_SERVICE_RESONSE: return PICO_SIZE_BEACONHDR;
