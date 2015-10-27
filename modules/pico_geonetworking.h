@@ -110,7 +110,7 @@ PACKED_STRUCT_DEF pico_gn_basic_header
     uint8_t remaining_hop_limit; ///< Decrembented by 1 by each GeoAdhoc router that forwards the packet. The packet shall not be forwarded if RHL is decremented to zero.
 };
 
-#define PICO_SIZE_GNCOMMONHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
+#define PICO_SIZE_GNCOMMONHDR ((uint32_t)sizeof(struct pico_gn_common_header))
 /// The Common Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_common_header
 {
