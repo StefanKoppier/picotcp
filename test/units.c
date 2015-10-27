@@ -46,6 +46,9 @@
 #include "pico_mld.c"
 #endif
 #endif
+#ifdef PICO_SUPPORT_GEONETWORKING
+#include "pico_geonetworking.c"
+#endif
 
 
 /* Include Check. */
