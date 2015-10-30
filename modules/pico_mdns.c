@@ -1601,11 +1601,12 @@ pico_mdns_tick( pico_time now, void *_arg )
  *  @param packet Packet buffer in memory
  *  @param len    Size of the packet in bytes
  *  @return 0 When the packet is passed successfully on to the lower layers of
- *			picoTCP. Doesn't mean the packet is successfully send on the wire.
+ *			picoTCP. Doesn't mean the packet is successfully sent on the wire.
  * ****************************************************************************/
 static int
 pico_mdns_send_packet( pico_dns_packet *packet, uint16_t len )
 {
+    //TODO: why only ipv4 support?
     struct pico_ip4 dst4;
 
     /* Set the destination address to the mDNS multicast-address */
@@ -1668,6 +1669,14 @@ pico_mdns_unicast_reply( pico_dns_rtree *unicast_tree,
         if (!local_addr) {
             mdns_dbg("Peer not on same link!\n");
             /* Forced response via multicast */
+
+            /* RFC 6762: 18.6: In both multicast query and response messages, 
+            the RD bit SHOULD be zero on transmission. In 
+            pico_dns_fill_packet_header, the RD bit is set to 
+            PICO_DNS_RD_IS_DESIRED, which is defined to be 1 */
+            packet->rd = PICO_DNS_RD_NO_DESIRE;
+
+
             if (pico_mdns_send_packet(packet, len) != (int)len) {
                 mdns_dbg("Could not send multicast response!\n");
                 return -1;
@@ -1710,6 +1719,12 @@ pico_mdns_multicast_reply( pico_dns_rtree *multicast_tree,
         }
 
         packet->id = 0;
+
+        /* RFC 6762: 18.6: In both multicast query and response messages, 
+        the RD bit SHOULD be zero on transmission. 
+        In pico_dns_fill_packet_header, the RD bit is set to 
+        PICO_DNS_RD_IS_DESIRED, which is defined to be 1 */
+        packet->rd = PICO_DNS_RD_NO_DESIRE;
 
         /* Send the packet via multicast */
         if (pico_mdns_send_packet(packet, len) != (int)len) {
@@ -2025,6 +2040,10 @@ pico_mdns_handle_data_as_answers_generic( uint8_t **ptr,
         pico_err = PICO_ERR_EINVAL;
         return -1;
     }
+
+    //TODO: When receiving multiple authoritative answers, 
+    //they should be sorted in lexicographical order
+    //(just like in pico_mdns_record_am_i_lexi_later)
 
     for (i = 0; i < count; i++) {
         /* Set rname of the record to the correct location */
@@ -2637,41 +2656,48 @@ pico_mdns_recv( void *buf, int buflen, struct pico_ip4 peer )
     uint16_t authcount = short_be(packet->nscount);
     uint16_t addcount = short_be(packet->arcount);
 
-    mdns_dbg(">>>>>>> QDcount: %u, ANcount: %u, NScount: %u, ARcount: %u\n",
-             qdcount, ancount, authcount, addcount);
+    // RFC 6762: 
+    // 18.3: Messages received with an opcode other than zero MUST be silently
+    // ignored.
+    // 18.11: messages received with non-zero Response Codes MUST be silently
+    // ignored
+    if(packet->opcode == 0 && packet->rcode == 0){
+        mdns_dbg(">>>>>>> QDcount: %u, ANcount: %u, NScount: %u, ARcount: %u\n",
+                 qdcount, ancount, authcount, addcount);
 
-    IGNORE_PARAMETER(buflen);
-    IGNORE_PARAMETER(addcount);
+        IGNORE_PARAMETER(buflen);
+        IGNORE_PARAMETER(addcount);
 
-    /* DNS PACKET TYPE DETERMINATION */
-    if ((qdcount > 0)) {
-        if (authcount > 0) {
-            mdns_dbg(">>>>>>> RCVD a mDNS probe query:\n");
-            /* Packet is probe query */
-            if (pico_mdns_handle_probe_packet(packet, peer) < 0) {
-                mdns_dbg("Could not handle mDNS probe query!\n");
-                return -1;
+        /* DNS PACKET TYPE DETERMINATION */
+        if ((qdcount > 0)) {
+            if (authcount > 0) {
+                mdns_dbg(">>>>>>> RCVD a mDNS probe query:\n");
+                /* Packet is probe query */
+                if (pico_mdns_handle_probe_packet(packet, peer) < 0) {
+                    mdns_dbg("Could not handle mDNS probe query!\n");
+                    return -1;
+                }
+            } else {
+                mdns_dbg(">>>>>>> RCVD a plain mDNS query:\n");
+                /* Packet is a plain query */
+                if (pico_mdns_handle_query_packet(packet, peer) < 0) {
+                    mdns_dbg("Could not handle plain DNS query!\n");
+                    return -1;
+                }
             }
         } else {
-            mdns_dbg(">>>>>>> RCVD a plain mDNS query:\n");
-            /* Packet is a plain query */
-            if (pico_mdns_handle_query_packet(packet, peer) < 0) {
-                mdns_dbg("Could not handle plain DNS query!\n");
+            if (ancount > 0) {
+                mdns_dbg(">>>>>>> RCVD a mDNS response:\n");
+                /* Packet is a response */
+                if (pico_mdns_handle_response_packet(packet) < 0) {
+                    mdns_dbg("Could not handle DNS response!\n");
+                    return -1;
+                }
+            } else {
+                /* Something went wrong here... */
+                mdns_dbg("RCVD Packet contains no questions or answers...\n");
                 return -1;
             }
-        }
-    } else {
-        if (ancount > 0) {
-            mdns_dbg(">>>>>>> RCVD a mDNS response:\n");
-            /* Packet is a response */
-            if (pico_mdns_handle_response_packet(packet) < 0) {
-                mdns_dbg("Could not handle DNS response!\n");
-                return -1;
-            }
-        } else {
-            /* Something went wrong here... */
-            mdns_dbg("RCVD Packet contains no questions or answers...\n");
-            return -1;
         }
     }
 
@@ -2735,7 +2761,6 @@ pico_mdns_send_query_packet( pico_time now, void *arg )
     IGNORE_PARAMETER(now);
 
     /* Parse in the cookie */
-    cookie = (struct pico_mdns_cookie *)arg;
     if (!cookie || cookie->type != PICO_MDNS_PACKET_TYPE_QUERY)
         return;
 
@@ -2747,6 +2772,11 @@ pico_mdns_send_query_packet( pico_time now, void *arg )
     }
 
     packet->id = 0;
+
+    /* RFC 6762: 18.6: In both multicast query and response messages, 
+    the RD bit SHOULD be zero on transmission. In pico_dns_fill_packet_header,
+    the RD bit is set to PICO_DNS_RD_IS_DESIRED, which is defined to be 1 */
+    packet->rd = PICO_DNS_RD_NO_DESIRE;
 
     if (cookie->status != PICO_MDNS_COOKIE_STATUS_CANCELLED) {
         cookie->status = PICO_MDNS_COOKIE_STATUS_ACTIVE;
@@ -3014,6 +3044,15 @@ pico_mdns_send_probe_packet( pico_time now, void *arg )
             return;
         }
         pico_tree_destroy(&nstree, NULL);
+
+        //RFC 6762: 18.1
+        packet->id = 0;
+
+        /* RFC 6762: 18.6: In both multicast query and response messages, 
+        the RD bit SHOULD be zero on transmission. 
+        In pico_dns_fill_packet_header, the RD bit is set to 
+        PICO_DNS_RD_IS_DESIRED, which is defined to be 1 */
+        packet->rd = PICO_DNS_RD_NO_DESIRE;
 
         /* Send the mDNS answer unsolicited via multicast */
         if(pico_mdns_send_packet(packet, len) != (int)len) {
