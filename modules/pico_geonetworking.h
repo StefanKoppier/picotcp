@@ -28,6 +28,9 @@
 #define PICO_GN_STATION_TYPE_TRAM            11
 #define PICO_GN_STATION_TYPE_ROADSIDE_UNIT   15
 
+#define PICO_GN_LOCTE_STATION_TYPE_VEHICLE  0
+#define PICO_GN_LOCTE_STATION_TYPE_ROADSIDE 1
+
 #define PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY   0
 #define PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A 1
 #define PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B 2
@@ -45,14 +48,23 @@ enum pico_gn_address_conf_method
     ANONYMOUS = 2 ///< Anonymous address configuration. Request an address from the security entity. \bug This feature is not supported.
 };
 
+
+// The next GET and SET defines are probably broken.
+#define PICO_GET_GNADDR_MANUAL(x) (x & 0x01)
+#define PICO_GET_GNADDR_STATION_TYPE(x) ((x >> 1) & 0x1F)
+#define PICO_GET_GNADDR_COUNTRY_CODE(x) ((x >> 6) & 0x3FF)
+#define PICO_GET_GNADDR_MID(x) (x >> 16)
+
+#define PICO_SET_GNADDR_MANUAL(x, v) x = ((x & (~(uint64_t)0x1)) | (v & (uint64_t)0x1))
+#define PICO_SET_GNADDR_STATION_TYPE(x, v) x = ((x & (~(uint64_t)0x3E)) | (v & (uint64_t)0x3E))
+#define PICO_SET_GNADDR_COUNTRY_CODE(x, v) x = ((x & (~(uint64_t)0xFFC0)) | (v & (uint64_t)0xFFC0))
+#define PICO_SET_GNADDR_MID(x, v) x = ((x & (~(uint64_t)0xFFFFFFFFFFFF0000)) | (v & (uint64_t)0xFFFFFFFFFFFF0000))
+
 #define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
 /// The GeoNetworking address that uniquely identifies a GeoNetworking entity.
 PACKED_STRUCT_DEF pico_gn_address
 {
-    uint8_t  manual: 1; ///< 0 when the address if manually configures, 1 if otherwise.
-    uint8_t  station_type: 5; ///< The type of the ITS-station.
-    uint16_t country_code: 10; ///< The ITS-station country code  as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001'.
-    uint64_t mid: 48; ///< The field representing the Logic Link Address.
+    uint64_t value; ///< Contains all values for the GeoNetworking address. The first bit determines whether the address was manually set using \enum pico_gn_address_conf _method.AUTO, this means 0 when the address if manually configures, 1 if otherwise. The next five bits determine the type of the ITS-station. The next ten bits determine the ITS-station country code as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001'. The last 48 bit represent the Logic Link Address.
 };
 
 #define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
@@ -60,12 +72,12 @@ PACKED_STRUCT_DEF pico_gn_address
 struct pico_gn_location_table_entry
 {
     struct pico_gn_address *address; ///< The GeoNetworking address of the ITS-station
-    uint64_t                ll_address: 48; ///< The physical address of the ITS-station
-    uint8_t                 station_type: 1; ///< The type of the ITS-station. This value should be either PICO_GN_STATION_TYPE_ROADSIDE or PICO_GN_STATION_TYPE_VEHICLE
-    uint8_t                 proto_version: 4; ///< The protocol version executed by the ITS-station.
+    uint64_t                ll_address; ///< The 48 bit physical address of the ITS-station
+    uint8_t                 station_type; ///< The type of the ITS-station. This value should be either PICO_GN_LOCTE_STATION_TYPE_VEHICLE or PICO_GN_LOCTE_STATION_TYPE_ROADSIDE.
+    uint8_t                 proto_version; ///< The four bit protocol version executed by the ITS-station.
     struct pico_gn_lpv     *position_vector; ///< The Long Position Vector of the ITS-station. The GeoNetworking address might not be set.
-    uint8_t                 location_service_pending: 1; ///< Flag indicating that a Location Service for this GeoNetworking address is in progress.
-    uint8_t                 is_neighbour: 1; ///< Flag indicating that the GeoAdhoc router is a direct neighbour.
+    uint8_t                 location_service_pending; ///< Boolean indicating that a Location Service for this GeoNetworking address is in progress.
+    uint8_t                 is_neighbour; ///< Boolean indicating that the GeoAdhoc router is a direct neighbour.
     uint16_t                sequence_number; ///< The last sequence number received from this GeoNetworking address that was identified as 'not duplicated'.
     uint32_t                timestamp; ///< The timestamp of the last packet reveiced from this Geonetworking address that was identifed as 'not duplicated'.
     uint16_t                packet_data_rate; ///< The Packet data rate as Exponential Moving Average.
@@ -89,13 +101,15 @@ PACKED_STRUCT_DEF pico_gn_spv
     uint32_t               longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
 };
 
+// THE NEXT TWO DEFINES ARE PROBABLY BROKEN
+#define PICO_GET_GNLPV_ACCURACY(x) (x & 0x01))
+#define PICO_GET_GNLPV_SPEED(x) (x >> 1)
 #define PICO_SIZE_GNLPV ((uint32_t)sizeof(struct pico_gn_lpv))
 /// The Long Position Vector containing all position-related information.
 PACKED_STRUCT_DEF pico_gn_lpv
 {
     struct pico_gn_spv short_pv; ///< The Short Position Vector containing the GeoNetworking address, timestamp, latitude and longitude.
-    uint8_t            position_accuracy_indicator: 1; ///< Flag indicating the accuracy of the reference position. 1 when 
-    int16_t            speed: 15; ///< Speed expressed in 0.01 metre per second.
+    uint16_t           sac; ///< The frist bit indicates the accuracy of the reference position. The last 15 bit indicata the speed expressed in 0.01 metre per second.
     uint16_t           heading; ///< Heading expressed in 0.1 degree from North.
 };
 
@@ -111,6 +125,7 @@ PACKED_STRUCT_DEF pico_gn_basic_header
     uint8_t remaining_hop_limit; ///< Decrembented by 1 by each GeoAdhoc router that forwards the packet. The packet shall not be forwarded if RHL is decremented to zero.
 };
 
+#define PICO_GET_GNCOMMONHDR_NEXT_HEADER(x) ((x & 0xF0) >> 4)
 #define PICO_GET_GNCOMMONHDR_HEADER(x) ((x & 0xF0) >> 4)
 #define PICO_GET_GNCOMMONHDR_SUBHEADER(x) (x & 0x0F)
 #define PICO_SIZE_GNCOMMONHDR ((uint32_t)sizeof(struct pico_gn_common_header))
@@ -172,7 +187,7 @@ PACKED_STRUCT_DEF pico_gn_beacon_header
     
 };
 
-#define PICO_SIZE_LSRREQHDR ((uint32_t)sizeof(struct pico_gn_lsreq_header))
+#define PICO_SIZE_LSREQHDR ((uint32_t)sizeof(struct pico_gn_lsreq_header))
 /// The Location Service request header for Location Service request packets.
 PACKED_STRUCT_DEF pico_gn_lsreq_header
 {
@@ -221,7 +236,6 @@ int pico_gn_create_address_managed(struct pico_gn_address *result);
 ///  \returns -1.
 int pico_gn_create_address_anonymous(struct pico_gn_address *result);
 
-
 /// Interface implementation which allows allocation of a GeoNetworking frame.
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
 ///  \param size The size of the payload to be allocated.
@@ -241,6 +255,14 @@ int pico_gn_process_beacon_in(struct pico_frame *f);
 ///  \param f The frame which contains the GeoUnicast header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_guc_in(struct pico_frame *f);
+/// Receiving of an incoming GeoUnicast packet.
+///  \param f The frame which contains the GeoUnicast header.
+///  \returns 0 on success, -1 on failure.
+int pico_gn_process_guc_receive(struct pico_frame *f);
+/// Forwarding of an incoming GeoUnicast packet.
+///  \param f The frame which contains the GeoUnicast header.
+///  \returns 0 on success, -1 on failure.
+int pico_gn_process_guc_forward(struct pico_frame *f);
 /// Processing of an incoming GeoAnycast packet.
 ///  \param f The frame which contains the GeoAnycast header.
 ///  \returns 0 on success, -1 on failure.
@@ -284,7 +306,7 @@ struct pico_gn_location_table_entry* pico_gn_loct_find(struct pico_gn_address *a
 ///  \param vector The new \struct pico_gn_lpv which contains the new values.
 ///  \param is_neighbour Flag determining if this \struct pico_gn_lpv is a direct neighbour.
 ///  \param sequence_number The sequence number of the last received packet from this address which was not found to be a duplicate.
-///  \param station_type Flag determining if the station is PICO_GN_STATION_TYPE_ROADSIDE or PICO_GN_STATION_TYPE_VEHICLE
+///  \param station_type Flag determining if the station is PICO_GN_LOCTE_STATION_TYPE_VEHICLE or PICO_GN_LOCTE_STATION_TYPE_ROADSIDE.
 ///  \param timestamp The timestamp of the last received packet from this address which was not found to be a duplicate.
 ///  \returns 0 on success, -1 when the /struct pico_gn_address is not found
 int pico_gn_loct_update(struct pico_gn_address *address, struct pico_gn_lpv *vector, uint8_t is_neighbour, uint16_t sequence_number, uint8_t station_type, uint32_t timestamp);
@@ -304,13 +326,38 @@ int pico_gn_find_extended_header_length(struct pico_gn_header *header);
 /// This is determined using a method based on the sequence number and the timestamp.
 ///  \param f The frame which needs to be processed.
 ///  \returns 0 when not duplicate, 1 when duplicate, -1 on failure.
-int pico_gn_detect_duplicate_SNTST_packet(struct pico_frame *f);
+int pico_gn_detect_duplicate_sntst_packet(struct pico_frame *f);
 
 /// Method for determining if the received BEACON or SHB is a duplicate.
 /// This is determined using a method based on the timestamp.
 ///  \param f The frame which needs to be processed.
 ///  \returns 0 when not duplicate, 1 when duplicate, -1 on failure.
-int pico_gn_detect_duplicate_TST_packet(struct pico_frame *f);
+int pico_gn_detect_duplicate_tst_packet(struct pico_frame *f);
+
+/// Method for fetching the source GeoNetworking address out of the extended header from the \struct pico_frame.
+///  \param f The \struct pico_frame containing the GeoNetworking headers used to find the \struct pico_gn_address.
+///  \returns The found source GeoNetworking address on success, NULL on failure.
+struct pico_gn_address *pico_gn_fetch_frame_source_address(struct pico_frame *f);
+
+/// Method for fetching the sequence number out of the extended header from the \struct pico_frame.
+///  \param f The \struct pico_frame containing the GeoNetworking headers used to find the sequence number.
+///  \returns The (16-bit) sequence number on success, -1 on failure.
+int32_t pico_gn_fetch_frame_sequence_number(struct pico_frame *f);
+
+/// Method for fetching the timestamp out of the extended header from the \struct pico_frame.
+///  \param f The \struct pico_frame containing the GeoNetworking headers used to find the timestamp.
+///  \returns The (32-bit) timestamp on success, -1 on failure.
+int64_t pico_gn_fetch_frame_timestamp(struct pico_frame *f);
+
+/// Method for fetching the last received sequence number out of the LocT from a GeoNetworking address.
+///  \param addr The \struct pico_gn_address used to find the sequence number.
+///  \returns The (16-bit) sequence number on success, -1 when not found.
+int32_t pico_gn_fetch_loct_sequence_number(struct pico_gn_address *addr);
+
+/// Method for fetching the last received timestamp out of the LocT from a GeoNetworking address.
+///  \param addr The \struct pico_gn_address used to find the timestamp.
+///  \returns The (32-bit) sequence number on success, -1 when not found.
+int64_t pico_gn_fetch_loct_timestamp(struct pico_gn_address *addr);
 
 /// Method for achieving uniqueness of the GeoNetworking address of the local system.
 /// This is done when a packet is received. The GeoAdhoc router checks is the received address is equals to the local address.
@@ -323,7 +370,7 @@ void pico_gn_detect_duplicate_address(struct pico_frame *f);
 ///  \param a The reference to the first \struct pico_gn_link.
 ///  \param b The reference to the second \struct pico_gn_link.
 ///  \returns -1 when a < than b, 1 when a > b, else 0
-static int pico_gn_link_compare(void *a, void *b);
+int pico_gn_link_compare(void *a, void *b);
 
 /// Method for comparing two Location Table entries.
 /// This function is used by the \struct pico_tree to insert, find and delete a LocTE inside the \struct pico_tree.
