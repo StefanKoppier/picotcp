@@ -228,6 +228,19 @@ MOCKABLE int32_t pico_transport_receive(struct pico_frame *f, uint8_t proto)
         ret = pico_enqueue(pico_proto_tcp.q_in, f);
         break;
 #endif
+        
+#ifdef PICO_SUPPORT_GEONETWORKING // Should be changed to PICO_SUPPORT_BTP when BTP gets implemented.
+    case PICO_PROTO_BTP_A:
+        ret = 0;
+        dbg("BTP-A packet received, but BTP is not implemented. The packet shall be discarded.\n");
+        pico_frame_discard(f);
+        break;
+    case PICO_PROTO_BTP_B:
+        ret = 0;
+        dbg("BTP-B packet received, but BTP is not implemented. The packet shall be discarded.\n");
+        pico_frame_discard(f);
+        break;
+#endif
 
     default:
         /* Protocol not available */
@@ -241,7 +254,6 @@ MOCKABLE int32_t pico_transport_receive(struct pico_frame *f, uint8_t proto)
 
 int32_t pico_network_receive(struct pico_frame *f)
 {
-    dbg("\tpico_network_receive");
     if (0) {}
 
 #ifdef PICO_SUPPORT_IPV4
@@ -253,8 +265,8 @@ int32_t pico_network_receive(struct pico_frame *f)
     else if (IS_IPV6(f)) {
         pico_enqueue(pico_proto_ipv6.q_in, f);
     }
-#endif
-#ifdef PICO_SUPPORT_GEONETWORKING
+#endif    
+#ifdef PICO_SUPPORT_GEONETWORKING 
     else if (IS_GN(f)) {
         pico_enqueue(pico_proto_geonetworking.q_in, f);
     }
@@ -423,7 +435,9 @@ static int32_t pico_ll_receive(struct pico_frame *f)
     // Any reason to use #if defined instead of #ifdef?
 #ifdef PICO_SUPPORT_GEONETWORKING 
     if (hdr->proto == PICO_IDETH_GN)
+    {
         return pico_gn_ethernet_receive(f);
+    }
 #endif
 
     pico_frame_discard(f);
@@ -441,6 +455,7 @@ static void pico_ll_check_bcast(struct pico_frame *f)
 int32_t pico_ethernet_receive(struct pico_frame *f)
 {
     struct pico_eth_hdr *hdr;
+    
     if (!f || !f->dev || !f->datalink_hdr)
     {
         pico_frame_discard(f);
@@ -756,15 +771,13 @@ int32_t pico_stack_recv(struct pico_device *dev, uint8_t *buffer, uint32_t len)
     if (len == 0)
         return -1;
     
-    dbg("\tpico_stack_recv");
-
     f = pico_frame_alloc(len);
     if (!f)
     {
         dbg("Cannot alloc incoming frame!\n");
         return -1;
     }
-
+    
     /* Association to the device that just received the frame. */
     f->dev = dev;
 

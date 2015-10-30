@@ -46,8 +46,12 @@ PACKED_STRUCT_DEF pico_trans
 #define PICO_PROTO_IGMP            2
 #define PICO_PROTO_TCP             6
 #define PICO_PROTO_UDP             17
+#define PICO_PROTO_BTP_A           61 // Maybe an invalid number. NOT IMPLEMENTED
+#define PICO_PROTO_BTP_B           62 // Maybe an invalid number. NOT IMPLEMENTED
 #define PICO_PROTO_IPV6            41
 #define PICO_PROTO_ICMP6           58
-#define PICO_PROTO_GEONETWORKING   60 /* Does this number matter? */
+#define PICO_PROTO_GEONETWORKING   60 // Maybe an invalid number.
+#define PICO_PROTO_GN6ASL          63 // Maybe an invalid number. GeoNetworking to Ipv6 Adaption Sub-Layer. NOT IMPLEMENTED      
+
 
 #endif
