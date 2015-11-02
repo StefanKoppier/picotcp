@@ -154,6 +154,8 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
 
 int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
 {
+    typedef int (*process_in_func)(struct pico_frame*); // Typedef for the lookup table.
+    
     struct pico_gn_header *h = (struct pico_gn_header*) f->net_hdr;
     int extended_length = pico_gn_find_extended_header_length(h);
     IGNORE_PARAMETER(self);
@@ -206,28 +208,41 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     // TODO: Process the Broadcast forwarding packet buffer (page 41)
     
     // EXTENDED HEADER PROCESSING
-    switch (PICO_GET_GNCOMMONHDR_HEADER(h->common_header.header))
+    // Lookup table for finding the correct process_in function for the specific header and subheader.
+    static const process_in_func lookup[PICO_GN_HEADER_COUNT][PICO_GN_SUBHEADER_COUNT] =
     {
-    case PICO_GN_HEADER_TYPE_BEACON: return pico_gn_process_beacon_in(f);
-    case PICO_GN_HEADER_TYPE_GEOUNICAST: return pico_gn_process_guc_in(f);
-    case PICO_GN_HEADER_TYPE_GEOANYCAST: return pico_gn_process_gac_in(f);
-    case PICO_GN_HEADER_TYPE_GEOBROADCAST: return pico_gn_process_gbc_in(f);
-    case PICO_GN_HEADER_TYPE_TOPOLOGICALLY_SCOPED_BROADCAST: 
-        switch (PICO_GET_GNCOMMONHDR_HEADER(h->common_header.header))
+        /* ANY,      INVALID,  INVALID  */ {NULL,                       NULL,                    NULL},
+        /* BEACON,   INVALID,  INVALID  */ {pico_gn_process_beacon_in, NULL,                    NULL},
+        /* GUC,      INVALID,  INVALID  */ {pico_gn_process_guc_in,    NULL,                    NULL},
+        /* GAC-circ, GAC-rect, GAC-elip */ {pico_gn_process_gac_in,    pico_gn_process_gac_in, pico_gn_process_gac_in},
+        /* GBC-circ, GBC-rect, GBC-elip */ {pico_gn_process_gbc_in,    pico_gn_process_gbc_in, pico_gn_process_gbc_in},
+        /* TSB-SHB,  TSB-MHP,  INVALID  */ {pico_gn_process_sh_in,     pico_gn_process_mh_in,  NULL},
+        /* LS-REQ,   LS-RESP,  INVALID  */ {pico_gn_process_ls_in,     pico_gn_process_ls_in,  NULL},                     
+    };
+    
+    uint8_t header_index    = PICO_GET_GNCOMMONHDR_HEADER(h->common_header.header);
+    uint8_t subheader_index = PICO_GET_GNCOMMONHDR_SUBHEADER(h->common_header.header);
+    
+    if (header_index >= PICO_GN_HEADER_COUNT || subheader_index >= PICO_GN_SUBHEADER_COUNT)
+    {
+        dbg("Invalid header type: %d.\n", header_index);
+        pico_frame_discard(f);
+        return -1;
+    }
+    else
+    {
+        int (*func)(struct pico_frame *) = lookup[header_index][subheader_index];
+        
+        if (func)
         {
-        case PICO_GN_SUBHEADER_TYPE_TSB_MULTI_HOP: return pico_gn_process_mh_in(f); 
-        case PICO_GN_SUBHEADER_TYPE_TSB_SINGLE_HOP: return pico_gn_process_sh_in(f); 
-        default: // Invalid sub-header, discard the packet
-            dbg("Invalid TSB sub-header: %d.\n", PICO_GET_GNCOMMONHDR_SUBHEADER(h->common_header.header));
+            return func(f);
+        }
+        else
+        {
+            dbg("Invalid header type: %d.\n", header_index);
             pico_frame_discard(f);
             return 0;
         }
-    case PICO_GN_HEADER_TYPE_LOCATION_SERVICE: return pico_gn_process_ls_in(f);
-    case PICO_GN_HEADER_TYPE_ANY:
-    default: // Invalid header type, discard the packet
-        dbg("Invalid header type: %d.\n", PICO_GET_GNCOMMONHDR_HEADER(h->common_header.header));
-        pico_frame_discard(f);
-        return 0;
     }
 }
 
@@ -298,6 +313,7 @@ int pico_gn_process_guc_receive(struct pico_frame *f)
     case 1: // A duplicate, exit quietly.
     case -1: // Failure, exit with an error code.
         pico_frame_discard(f);
+        dbg("Received a duplicate, discard the packet.\n");
         // TODO: set error code if result == -1
         return is_duplicate;
     }
