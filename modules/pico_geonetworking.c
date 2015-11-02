@@ -211,9 +211,9 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     // Lookup table for finding the correct process_in function for the specific header and subheader.
     static const process_in_func lookup[PICO_GN_HEADER_COUNT][PICO_GN_SUBHEADER_COUNT] =
     {
-        /* ANY,      INVALID,  INVALID  */ {NULL,                       NULL,                    NULL},
-        /* BEACON,   INVALID,  INVALID  */ {pico_gn_process_beacon_in, NULL,                    NULL},
-        /* GUC,      INVALID,  INVALID  */ {pico_gn_process_guc_in,    NULL,                    NULL},
+        /* ANY,      INVALID,  INVALID  */ {NULL,                      NULL,                   NULL},
+        /* BEACON,   INVALID,  INVALID  */ {pico_gn_process_beacon_in, NULL,                   NULL},
+        /* GUC,      INVALID,  INVALID  */ {pico_gn_process_guc_in,    NULL,                   NULL},
         /* GAC-circ, GAC-rect, GAC-elip */ {pico_gn_process_gac_in,    pico_gn_process_gac_in, pico_gn_process_gac_in},
         /* GBC-circ, GBC-rect, GBC-elip */ {pico_gn_process_gbc_in,    pico_gn_process_gbc_in, pico_gn_process_gbc_in},
         /* TSB-SHB,  TSB-MHP,  INVALID  */ {pico_gn_process_sh_in,     pico_gn_process_mh_in,  NULL},
