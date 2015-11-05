@@ -7,8 +7,8 @@
 #include "pico_addressing.h"
 #include "pico_tree.h"
 
-#define PICO_GN_HEADER_COUNT                               7 // Maximum number of extended headers defined. Used for the creation of lookup tables.
-#define PICO_GN_SUBHEADER_COUNT                            3 // Maximum number of extended sub-headers defined. Used for the creation of lookup tables.
+#define PICO_GN_HEADER_COUNT    7 // Maximum number of extended headers defined. Used for the creation of lookup tables.
+#define PICO_GN_SUBHEADER_COUNT 3 // Maximum number of extended sub-headers defined. Used for the creation of lookup tables.
 
 /* INTERFACE PROTOCOL DEFINITION */
 
@@ -28,18 +28,18 @@ struct pico_protocol pico_proto_geonetworking = {
 };
 
 const struct pico_gn_header_info header_info_invalid = {
-    .header = 0,
-    .subheader = 0,
-    .size = 0,
-    .offsets = {
+    .header     = 0,
+    .subheader  = 0,
+    .size       = 0,
+    .offsets    = {
         .sequence_number = -1,
-        .timestamp = -1,
-        .source_address = -1,
+        .timestamp       = -1,
+        .source_address  = -1,
     },
-    .in = NULL,
-    .out = NULL,
-    .push = NULL,
-    .alloc = NULL,
+    .in         = NULL,
+    .out        = NULL,
+    .push       = NULL,
+    .alloc      = NULL,
 };
 
 PICO_TREE_DECLARE(pico_gn_dev_link, pico_gn_link_compare);

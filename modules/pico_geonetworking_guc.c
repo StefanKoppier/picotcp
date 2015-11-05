@@ -2,17 +2,17 @@
 #include "pico_tree.h"
 
 const struct pico_gn_header_info guc_header_type = {
-    .header = 2,
-    .subheader = 0,
-    .size = PICO_SIZE_GUCHDR,
+    .header     = 2,
+    .subheader  = 0,
+    .size       = PICO_SIZE_GUCHDR,
     .offsets = {
-        .timestamp = 12,
+        .timestamp       = 12,
         .sequence_number = 0,
-        .source_address = 4,
+        .source_address  = 4,
     },
-    .in = pico_gn_process_guc_in,
-    .out = pico_gn_process_guc_out,
-    .alloc = pico_gn_guc_alloc,
+    .in         = pico_gn_process_guc_in,
+    .out        = pico_gn_process_guc_out,
+    .alloc      = pico_gn_guc_alloc,
 };
 
 int pico_gn_process_guc_in(struct pico_frame *f)
