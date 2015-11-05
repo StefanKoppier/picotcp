@@ -22,7 +22,7 @@ ASAN_OPTIONS="detect_leaks=0" ./build/test/modunit_aodv.elf || exit 1
 ASAN_OPTIONS="detect_leaks=0" ./build/test/modunit_dev_ppp.elf || exit 1
 ASAN_OPTIONS="detect_leaks=0" ./build/test/modunit_mld.elf || exit 1
 ASAN_OPTIONS="detect_leaks=0" ./build/test/modunit_igmp.elf || exit 1
-ASAN_OPTIONS="detect_leaks=0" ./build/test/modunit_geonetworking.elf || exit 1
+ASAN_OPTIONS="detect_leaks=0" ./build/test/modunit_geonetworking_common.elf || exit 1
 ASAN_OPTIONS="detect_leaks=0" ./build/test/modunit_hotplug_detection.elf || exit 1
 
 

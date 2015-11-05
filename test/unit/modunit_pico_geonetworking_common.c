@@ -1,5 +1,6 @@
-#include "modules/pico_geonetworking.c"
+#include "modules/pico_geonetworking_common.c"
 #include "check.h"
+#include "pico_geonetworking_common.h"
 
 typedef struct pico_gn_location_table_entry locte;
 typedef struct pico_gn_address address;
@@ -40,18 +41,18 @@ END_TEST
 
 START_TEST(tc_pico_gn_loct_add)
 {
-    /*locte *entry = NULL;
+    locte *entry = NULL;
     address *address1 = PICO_ZALLOC(sizeof(address));
-    address1->station_type = PICO_GN_STATION_TYPE_PASSENGER_CAR;
-    address1->manual = 1;
-    address1->mid = 0x6AB6A2;
-    address1->country_code = 0;
+    PICO_SET_GNADDR_STATION_TYPE(address1->value, PASSENGER_CAR);
+    PICO_SET_GNADDR_MANUAL(address1->value, 1);
+    PICO_SET_GNADDR_MID(address1->value, 0x6AB6A2);
+    PICO_SET_GNADDR_COUNTRY_CODE(address1->value, 0);
     
     address *address2 = PICO_ZALLOC(sizeof(address));
-    address2->station_type = PICO_GN_STATION_TYPE_ROADSIDE_UNIT;
-    address2->manual = 1;
-    address2->mid = 0x2D6C7A;
-    address2->country_code = 0;
+    PICO_SET_GNADDR_STATION_TYPE(address2->value, ROADSIDE_UNIT);
+    PICO_SET_GNADDR_MANUAL(address2->value, 1);
+    PICO_SET_GNADDR_MID(address2->value , 0x2D6C7A);
+    PICO_SET_GNADDR_COUNTRY_CODE(address2->value, 0);
     
     // Empty and check if the size of the LocT is 0.
     pico_gn_loct_clear();
@@ -63,10 +64,10 @@ START_TEST(tc_pico_gn_loct_add)
     
     // Check if an insertion of an address is successful.
     fail_if((entry = pico_gn_loct_add(address1)) != NULL &&
-           (entry->address->country_code == address1->country_code &&
-            entry->address->manual == address1->manual &&
-            entry->address->mid == address1->mid &&
-            entry->address->station_type == address1->station_type ), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
+           (PICO_GET_GNADDR_COUNTRY_CODE(entry->address->value) == PICO_GET_GNADDR_COUNTRY_CODE(address1->value) &&
+            PICO_GET_GNADDR_MANUAL(entry->address->value)       == PICO_GET_GNADDR_MANUAL(address1->value)       &&
+            PICO_GET_GNADDR_MID(entry->address->value)          == PICO_GET_GNADDR_MID(address1->value)          &&
+            PICO_GET_GNADDR_STATION_TYPE(entry->address->value) == PICO_GET_GNADDR_STATION_TYPE(address1->value)), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
     fail_if(pico_gn_loct_count() == 1, "Error: inserting of an entry does not result in an entry.");
     fail_if((entry->is_neighbour == 0 && 
             entry->ll_address == 0 && 
@@ -80,10 +81,10 @@ START_TEST(tc_pico_gn_loct_add)
     
     // Check if an insertion of a second address is successful.
     fail_if((entry = pico_gn_loct_add(address2)) != NULL &&
-           (entry->address->country_code == address2->country_code &&
-            entry->address->manual == address2->manual &&
-            entry->address->mid == address2->mid &&
-            entry->address->station_type == address2->station_type ), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
+           (PICO_GET_GNADDR_COUNTRY_CODE(entry->address->value) == PICO_GET_GNADDR_COUNTRY_CODE(address2->value) &&
+            PICO_GET_GNADDR_MANUAL(entry->address->value)       == PICO_GET_GNADDR_MANUAL(address2->value)       &&
+            PICO_GET_GNADDR_MID(entry->address->value)          == PICO_GET_GNADDR_MID(address2->value)          &&
+            PICO_GET_GNADDR_STATION_TYPE(entry->address->value) == PICO_GET_GNADDR_STATION_TYPE(address2->value)), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
     fail_if(pico_gn_loct_count() == 2, "Error: inserting of an entry does not result in an entry.");
     fail_if((entry->is_neighbour == 0 && 
             entry->ll_address == 0 && 
@@ -93,7 +94,7 @@ START_TEST(tc_pico_gn_loct_add)
             entry->proto_version == 0 &&
             entry->sequence_number == 0 &&
             entry->station_type == 0 &&
-            entry->timestamp == 0), "Error: inserting of an entry fails due to entry not being empty (except for the GeoNetworking address).");*/
+            entry->timestamp == 0), "Error: inserting of an entry fails due to entry not being empty (except for the GeoNetworking address).");
 }
 END_TEST
 

@@ -1,44 +1,60 @@
 /* 
- * File:   pico_geonetworking.h
+ * File:   pico_geonetworking_common.h
  * Author: Stefan Koppier
  *
  * Created on 8 oktober 2015, 14:16
  */
 
-#ifndef INCLUDE_PICO_GEONETWORKING
-#define INCLUDE_PICO_GEONETWORKING
+#ifndef INCLUDE_PICO_GEONETWORKING_COMMON
+#define INCLUDE_PICO_GEONETWORKING_COMMON
 
 #include "pico_protocol.h"
 #include "pico_config.h"
+#include "pico_tree.h"
 
 
 #define PICO_GN_PROTOCOL_VERSION 0 // EN 302 636-4-1 v1.2.1
 
-#define PICO_GN_STATION_TYPE_UNKNOWN         0
-#define PICO_GN_STATION_TYPE_PEDESTRIAN      1
-#define PICO_GN_STATION_TYPE_CYCLIST         2
-#define PICO_GN_STATION_TYPE_MOPED           3
-#define PICO_GN_STATION_TYPE_MOTORCYCLE      4
-#define PICO_GN_STATION_TYPE_PASSENGER_CAR   5
-#define PICO_GN_STATION_TYPE_BUS             6
-#define PICO_GN_STATION_TYPE_LIGHT_TRUCK     7
-#define PICO_GN_STATION_TYPE_HEAVY_TRUCK     8
-#define PICO_GN_STATION_TYPE_TRAILER         9
-#define PICO_GN_STATION_TYPE_SPECIAL_VEHICLE 10
-#define PICO_GN_STATION_TYPE_TRAM            11
-#define PICO_GN_STATION_TYPE_ROADSIDE_UNIT   15
-
 #define PICO_GN_LOCTE_STATION_TYPE_VEHICLE  0
 #define PICO_GN_LOCTE_STATION_TYPE_ROADSIDE 1
 
-#define PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY   0
-#define PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A 1
-#define PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B 2
-#define PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6  3
+/// Enum containing the different types of ITS-stations.
+enum pico_gn_station_type
+{
+    UNKNOWN         = 0,
+    PEDESTRIAN      = 1,
+    CYCLIST         = 2,
+    MOPED           = 3,
+    MOTORCYCLE      = 4,
+    PASSENGER_CAR   = 5,
+    BUS             = 6,
+    LIGHT_TRUCK     = 7,
+    HEAVY_TRUCK     = 8,
+    TRAILER         = 9,
+    SPECIAL_VEHICLE = 10,
+    TRAM            = 11,
+    ROADSIDE_UNIT   = 15,
+};
 
+/// Enum containing the possible next values in the \struct pico_gn_basic_header next header field.
+enum pico_gn_basic_header_next_header
+{
+    BH_ANY  = 0, ///< The protocol treats this field as if the next header is a Common Header.
+    COMMON  = 1,
+    SECURED = 2, ///< \bug NOT SUPPORTED.
+};
+
+enum pico_gn_common_header_next_header
+{
+    CM_ANY = 0, ///< The protocol does not specify what the next header is. This packet will not be forwarded to another transport or networking layer.
+    BTP_A  = 1,
+    BTP_B  = 2,
+    GN6ASL = 3,
+};
 
 extern struct pico_protocol pico_proto_geonetworking;
 extern struct pico_tree     pico_gn_loct;
+extern struct pico_tree     pico_gn_dev_link;
 
 /// The method used to configure the GeoAdhoc router's GeoNetworking address.
 enum pico_gn_address_conf_method
@@ -48,12 +64,44 @@ enum pico_gn_address_conf_method
     ANONYMOUS = 2 ///< Anonymous address configuration. Request an address from the security entity. \bug This feature is not supported.
 };
 
+/// The logic link protocol to use beneath the GeoNetworking protocol.
+enum pico_gn_communication_profile
+{
+    UNSPECIFIED = 0, ///< Unspecified protocol. This implemention of GeoNetworking assumes Ethernet.
+    ITSG5 = 1 ///< ITS-G5. NOT SUPPORTED.
+};
+
+typedef int                (*process_in)  (struct pico_frame*);
+typedef int                (*process_out) (struct pico_frame*);
+typedef int                (*socket_push) (struct pico_frame*);
+typedef struct pico_frame *(*alloc)       (uint16_t);
+
+/// Struct containing information about a specfic extended header.
+/// It's used in the extended header processing and finding specific fields in these extended headers.
+struct pico_gn_header_info
+{
+    uint8_t     header: 4; ///< Field containing the extended header type. These values are determined by the GeoNetworking protocol.
+    uint8_t     subheader: 4; ///< Field containing the extended header sub-type. These values are determined by the GeoNetworking protocol.
+    uint32_t    size; ///< The size of the extended header in bytes.
+    struct
+    {
+        int32_t source_address; ///< The position of the source address.
+        int32_t sequence_number; ///< The position of the sequence number.
+        int32_t timestamp; ///< The position of the timestamp.
+    } offsets; ///< Complex field containing the offsets of specific fields in the extended header in bytes. This offset starts at the beginning of the extended header.
+    process_in  in; ///< Function pointer to the extended header inward processing function.
+    process_out out; ///< Function pointer to the extended header outward processing function.
+    socket_push push; ///< Function pointer to the exteneded header socket push function.
+    alloc       alloc; ///< Function pointer to the extended header alloc function.
+};
+
+extern const struct pico_gn_header_info header_info_invalid;
 
 // The next GET and SET defines are probably broken.
-#define PICO_GET_GNADDR_MANUAL(x) (x & 0x01)
-#define PICO_GET_GNADDR_STATION_TYPE(x) ((x >> 1) & 0x1F)
-#define PICO_GET_GNADDR_COUNTRY_CODE(x) ((x >> 6) & 0x3FF)
-#define PICO_GET_GNADDR_MID(x) (x >> 16)
+#define PICO_GET_GNADDR_MANUAL(x) ((uint8_t)((x & 0x10) >> 1))
+#define PICO_GET_GNADDR_STATION_TYPE(x) ((uint8_t)((x >> 1) & 0x1F))
+#define PICO_GET_GNADDR_COUNTRY_CODE(x) ((uint16_t)((x >> 6) & 0x3FF))
+#define PICO_GET_GNADDR_MID(x) ((uint64_t)(x >> 16))
 
 #define PICO_SET_GNADDR_MANUAL(x, v) x = ((x & (~(uint64_t)0x1)) | (v & (uint64_t)0x1))
 #define PICO_SET_GNADDR_STATION_TYPE(x, v) x = ((x & (~(uint64_t)0x3E)) | (v & (uint64_t)0x3E))
@@ -65,6 +113,13 @@ enum pico_gn_address_conf_method
 PACKED_STRUCT_DEF pico_gn_address
 {
     uint64_t value; ///< Contains all values for the GeoNetworking address. The first bit determines whether the address was manually set using \enum pico_gn_address_conf _method.AUTO, this means 0 when the address if manually configures, 1 if otherwise. The next five bits determine the type of the ITS-station. The next ten bits determine the ITS-station country code as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001'. The last 48 bit represent the Logic Link Address.
+};
+
+#define PICO_SIZE_GNPOSITION (uint32_t)sizeof(struct pico_gn_position))
+/// The target location for sending a GAC/GBC packet.
+struct pico_gn_position
+{
+    
 };
 
 #define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
@@ -95,7 +150,7 @@ struct pico_gn_link
 /// The Short Position Vector containing the minimum position-related information.
 PACKED_STRUCT_DEF pico_gn_spv
 {
-    struct pico_gn_address address; ///< The GeoNetworking address of which the Position Vector originated.
+    struct pico_gn_address address; ///< The GeoNetworking address of which this \struct pico_gn_spv belongs to.
     uint32_t               timestamp; ///< The time in milliseconds at which the latitude and longitude were acuired.
     uint32_t               latitude; ///< The latitude of the GeoAdhoc router reference position expressed in 1/10 micro degree.
     uint32_t               longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
@@ -113,8 +168,15 @@ PACKED_STRUCT_DEF pico_gn_lpv
     uint16_t           heading; ///< Heading expressed in 0.1 degree from North.
 };
 
+/// An union to be used when sending a GeoNetworking packet.
+union pico_gn_destination
+{
+    struct pico_gn_position *position; ///< The position where the packet should be sent to. This field is used for GBC/GAC packets.
+    struct pico_gn_address  *address; ///< The address where the packet should be sent to. This field is used for GUC packets.
+};
+
 #define PICO_GET_GNBASICHDR_VERSION(x) ((x & 0xF0) >> 4)
-#define PICO_GET_GNBASICHDR_NEXT_HEADER(x) (x & 0x0F)
+#define PICO_GET_GNBASICHDR_NEXT_HEADER(x) ((enum pico_gn_basic_header_next_header)(x & 0x0F))
 #define PICO_SIZE_GNBASICHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
 /// The Basic Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_basic_header 
@@ -125,7 +187,7 @@ PACKED_STRUCT_DEF pico_gn_basic_header
     uint8_t remaining_hop_limit; ///< Decrembented by 1 by each GeoAdhoc router that forwards the packet. The packet shall not be forwarded if RHL is decremented to zero.
 };
 
-#define PICO_GET_GNCOMMONHDR_NEXT_HEADER(x) ((x & 0xF0) >> 4)
+#define PICO_GET_GNCOMMONHDR_NEXT_HEADER(x) ((enum pico_gn_common_header_next_header)((x & 0xF0) >> 4))
 #define PICO_GET_GNCOMMONHDR_HEADER(x) ((x & 0xF0) >> 4)
 #define PICO_GET_GNCOMMONHDR_SUBHEADER(x) (x & 0x0F)
 #define PICO_SIZE_GNCOMMONHDR ((uint32_t)sizeof(struct pico_gn_common_header))
@@ -149,63 +211,15 @@ PACKED_STRUCT_DEF pico_gn_header
     struct pico_gn_common_header common_header; ///< The Common Header of the GeoNetworking packet.
 };
 
-#define PICO_SIZE_GUCHDR ((uint32_t)sizeof(struct pico_gn_guc_header))
-/// The GeoUnicast header for GeoUnicast packets.
-PACKED_STRUCT_DEF pico_gn_guc_header
+#define PICO_SIZE_GNDATA_REQUEST ((uint32_t)sizeof(struct pico_gn_data_request))
+/// The GN-DATA.request primitive which contains information about the request for sending a GeoNetworking packet.
+PACKED_STRUCT_DEF pico_gn_data_request
 {
-    uint16_t           sequence_number; ///< Indicates the index of the sent GUC packet and used to detect duplicate packets.
-    uint16_t           reserved; ///< Reserved, should be set to 0.
-    struct pico_gn_lpv source; ///< Source Long Position Vector containing the reference position of the source.
-    struct pico_gn_spv destination; ///< Destination Short Position Vector containing the position of the destination.
-};
-
-#define PICO_SIZE_TSCHDR ((uint32_t)sizeof(struct pico_gn_tsc_header))
-/// The Topologically-scoped broadcast header Topologically-scoped broadcast packets.
-PACKED_STRUCT_DEF pico_gn_tsc_header
-{
-    
-};
-
-#define PICO_SIZE_SHBHDR ((uint32_t)sizeof(struct pico_gn_shb_header))
-/// The Single-hop broadcast header for Single-hop broadcast packets.
-PACKED_STRUCT_DEF pico_gn_shb_header
-{
-    
-};
-
-#define PICO_SIZE_GBCHDR ((uint32_t)sizeof(struct pico_gn_gbc_header))
-/// The GeoBroadcast header for GeoBroadcast packets.
-PACKED_STRUCT_DEF pico_gn_gbc_header
-{
-    
-};
-
-#define PICO_SIZE_BEACONHDR ((uint32_t)sizeof(struct pico_gn_beacon_header))
-/// The GeoAnycast header for GeoAnycast packets.
-PACKED_STRUCT_DEF pico_gn_beacon_header
-{
-    
-};
-
-#define PICO_SIZE_LSREQHDR ((uint32_t)sizeof(struct pico_gn_lsreq_header))
-/// The Location Service request header for Location Service request packets.
-PACKED_STRUCT_DEF pico_gn_lsreq_header
-{
-    
-};
-
-#define PICO_SIZE_LSRESHDR ((uint32_t)sizeof(struct pico_gn_lsres_header))
-/// The Location Service response header for Location Service response packets.
-PACKED_STRUCT_DEF pico_gn_lsres_header
-{
-    
-};
-
-#define PICO_SIZE_GNDATA_INDICATION ((uint32_t)sizeof(struct pico_gn_data_indication))
-/// The GN-DATA.indication primitive which contains information about the received GeoNetworking packet.
-PACKED_STRUCT_DEF pico_gn_data_indication
-{
-    
+    uint8_t                            upper_proto; ///< The protocol responsible for this request. This value can be either PICO_PROTO_BTP_A, PICO_PROTO_BTP_B or PICO_PROTO_GN6ASL.
+    uint8_t                            type; // The GeoNetworking packet type. 
+    union pico_gn_destination         *destination; ///< The destination of this request.
+    enum pico_gn_communication_profile communication_profile; ///< Specifies the underlying logic link protocol to use. This can either be unspecified (Ethernet for this implementation) ITS-G5 (NOT SUPPORTED).
+    uint8_t                            traffic_class; ///< The traffic class for this request.
 };
 
 /// Function for adding this \struct pico_device to the GeoAdhoc router.
@@ -247,42 +261,6 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size);
 ///  \param f The which needs to be processed.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f);
-/// Processing of an incoming Beacon packet.
-///  \param f The frame which contains the Beacon header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_beacon_in(struct pico_frame *f);
-/// Processing of an incoming GeoUnicast packet.
-///  \param f The frame which contains the GeoUnicast header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_guc_in(struct pico_frame *f);
-/// Receiving of an incoming GeoUnicast packet.
-///  \param f The frame which contains the GeoUnicast header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_guc_receive(struct pico_frame *f);
-/// Forwarding of an incoming GeoUnicast packet.
-///  \param f The frame which contains the GeoUnicast header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_guc_forward(struct pico_frame *f);
-/// Processing of an incoming GeoAnycast packet.
-///  \param f The frame which contains the GeoAnycast header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_gac_in(struct pico_frame *f);
-/// Processing of an incoming GeoBroadcast packet.
-///  \param f The frame which contains the GeoBroadcast header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_gbc_in(struct pico_frame *f);
-/// Processing of an incoming Topologically-scoped broadcast multi-hop packet.
-///  \param f The frame which contains the Topologically-scoped broadcast multi-hop header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_mh_in(struct pico_frame *f);
-/// Processing of an incoming Topologically-scoped broadcast single-hop packet.
-///  \param f The frame which contains the Topologically-scoped broadcast single-hop header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_sh_in(struct pico_frame *f);
-/// Processing of an incoming Location Service packet.
-///  \param f The frame which contains the Location Service header.
-///  \returns 0 on success, -1 on failure.
-int pico_gn_process_ls_in(struct pico_frame *f);
 
 /// Interface implementation which allows the processing of outgoing frames, from the Transport layer.
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
@@ -320,7 +298,7 @@ struct pico_gn_location_table_entry *pico_gn_loct_add(struct pico_gn_address *ad
 /// Determines the size of the extended header according to the header and subheader fields of the Common Header.
 ///  \param header The header which contains the header and subheader that will follow the Common Header.
 ///  \returns The extended header length in octets, 0 if the header type is of any type, -1 on failure.
-int pico_gn_find_extended_header_length(struct pico_gn_header *header);
+int64_t pico_gn_find_extended_header_length(struct pico_gn_header *header);
 
 /// Method for determining if the received GUC, TSB, GAC, LS Request or LS Response packet is a duplicate.
 /// This is determined using a method based on the sequence number and the timestamp.
@@ -384,5 +362,10 @@ int pico_gn_locte_compare(void *a, void *b);
 ///  \param b The reference to the second \struct pico_gn_address.
 ///  \returns 1 when equal, else 0
 int pico_gn_address_equals(struct pico_gn_address *a, struct pico_gn_address *b);
+
+/// Finds the \struct pico_gn_header_info, which contains extended header information, for a header.
+///  \param header The header to find the extended header information for.
+///  \returns The extended header information, NULL on failure.
+const struct pico_gn_header_info *pico_gn_get_header_info(struct pico_gn_header *header);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */

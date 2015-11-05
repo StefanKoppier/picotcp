@@ -47,7 +47,8 @@
 #endif
 #endif
 #ifdef PICO_SUPPORT_GEONETWORKING
-#include "pico_geonetworking.c"
+#include "pico_geonetworking_common.c"
+#include "pico_geonetworking_guc.c"
 #endif
 
 
