@@ -1,6 +1,7 @@
 #include "modules/pico_geonetworking_common.c"
 #include "check.h"
 #include "pico_geonetworking_common.h"
+#include <inttypes.h>
 
 typedef struct pico_gn_location_table_entry locte;
 typedef struct pico_gn_address address;
@@ -56,45 +57,85 @@ START_TEST(tc_pico_gn_loct_add)
     
     // Empty and check if the size of the LocT is 0.
     pico_gn_loct_clear();
-    fail_if(pico_gn_loct_count() == 0, "Error: location table not empty after clearing it");
+    fail_if(pico_gn_loct_count() != 0, "Error: location table not empty after clearing it");
     
     // Check that the insertion of a NULL address doesn't get inserted.
-    fail_if((entry = pico_gn_loct_add(NULL)) == NULL, "Error: inserting NULL results in the creation of an entry.");
-    fail_if(pico_gn_loct_count() == 0, "Error: inserting NULL results in an entry in the location table.");
+    fail_if((entry = pico_gn_loct_add(NULL)) != NULL, "Error: inserting NULL results in the creation of an entry.");
+    fail_if(pico_gn_loct_count() != 0, "Error: inserting NULL results in an entry in the location table.");
     
     // Check if an insertion of an address is successful.
     fail_if((entry = pico_gn_loct_add(address1)) != NULL &&
-           (PICO_GET_GNADDR_COUNTRY_CODE(entry->address->value) == PICO_GET_GNADDR_COUNTRY_CODE(address1->value) &&
-            PICO_GET_GNADDR_MANUAL(entry->address->value)       == PICO_GET_GNADDR_MANUAL(address1->value)       &&
-            PICO_GET_GNADDR_MID(entry->address->value)          == PICO_GET_GNADDR_MID(address1->value)          &&
-            PICO_GET_GNADDR_STATION_TYPE(entry->address->value) == PICO_GET_GNADDR_STATION_TYPE(address1->value)), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
-    fail_if(pico_gn_loct_count() == 1, "Error: inserting of an entry does not result in an entry.");
-    fail_if((entry->is_neighbour == 0 && 
-            entry->ll_address == 0 && 
-            entry->location_service_pending == 0 &&
-            entry->packet_data_rate == 0 &&
-            entry->position_vector == NULL &&
-            entry->proto_version == 0 &&
-            entry->sequence_number == 0 &&
-            entry->station_type == 0 &&
-            entry->timestamp == 0), "Error: inserting of an entry fails due to entry not being empty (except for the GeoNetworking address).");
+           !(PICO_GET_GNADDR_COUNTRY_CODE(entry->address->value) == PICO_GET_GNADDR_COUNTRY_CODE(address1->value) &&
+             PICO_GET_GNADDR_MANUAL(entry->address->value)       == PICO_GET_GNADDR_MANUAL(address1->value)       &&
+             PICO_GET_GNADDR_MID(entry->address->value)          == PICO_GET_GNADDR_MID(address1->value)          &&
+             PICO_GET_GNADDR_STATION_TYPE(entry->address->value) == PICO_GET_GNADDR_STATION_TYPE(address1->value)), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
+    fail_if(pico_gn_loct_count() != 1, "Error: inserting of an entry does not result in an entry.");
+    fail_if((entry->is_neighbour             != 0 || 
+             entry->ll_address               != 0 || 
+             entry->location_service_pending != 0 ||
+             entry->packet_data_rate         != 0 ||
+             entry->position_vector          != NULL ||
+             entry->proto_version            != 0 ||
+             entry->sequence_number          != 0 ||
+             entry->station_type             != 0 ||
+             entry->timestamp                != 0), "Error: inserting of an entry fails due to entry not being empty (except for the GeoNetworking address).");
     
     // Check if an insertion of a second address is successful.
     fail_if((entry = pico_gn_loct_add(address2)) != NULL &&
-           (PICO_GET_GNADDR_COUNTRY_CODE(entry->address->value) == PICO_GET_GNADDR_COUNTRY_CODE(address2->value) &&
-            PICO_GET_GNADDR_MANUAL(entry->address->value)       == PICO_GET_GNADDR_MANUAL(address2->value)       &&
-            PICO_GET_GNADDR_MID(entry->address->value)          == PICO_GET_GNADDR_MID(address2->value)          &&
-            PICO_GET_GNADDR_STATION_TYPE(entry->address->value) == PICO_GET_GNADDR_STATION_TYPE(address2->value)), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
-    fail_if(pico_gn_loct_count() == 2, "Error: inserting of an entry does not result in an entry.");
-    fail_if((entry->is_neighbour == 0 && 
-            entry->ll_address == 0 && 
-            entry->location_service_pending == 0 &&
-            entry->packet_data_rate == 0 &&
-            entry->position_vector == NULL &&
-            entry->proto_version == 0 &&
-            entry->sequence_number == 0 &&
-            entry->station_type == 0 &&
-            entry->timestamp == 0), "Error: inserting of an entry fails due to entry not being empty (except for the GeoNetworking address).");
+           !(PICO_GET_GNADDR_COUNTRY_CODE(entry->address->value) == PICO_GET_GNADDR_COUNTRY_CODE(address2->value) &&
+             PICO_GET_GNADDR_MANUAL(entry->address->value)       == PICO_GET_GNADDR_MANUAL(address2->value)       &&
+             PICO_GET_GNADDR_MID(entry->address->value)          == PICO_GET_GNADDR_MID(address2->value)          &&
+             PICO_GET_GNADDR_STATION_TYPE(entry->address->value) == PICO_GET_GNADDR_STATION_TYPE(address2->value)), "Error: inserting an entry fails due to returning of NULL or incorrectly inserting the GeoNetworking address.");
+    fail_if(pico_gn_loct_count() != 2, "Error: inserting of an entry does not result in an entry.");
+    fail_if(entry->is_neighbour             != 0 || 
+            entry->ll_address               != 0 || 
+            entry->location_service_pending != 0 ||
+            entry->packet_data_rate         != 0 ||
+            entry->position_vector          != NULL ||
+            entry->proto_version            != 0 ||
+            entry->sequence_number          != 0 ||
+            entry->station_type             != 0 ||
+            entry->timestamp                != 0, "Error: inserting of an entry fails due to entry not being empty (except for the GeoNetworking address).");
+}
+END_TEST
+
+START_TEST(pico_gn_address)
+{
+    { // Test GET functions from buffers assignment.
+        struct pico_gn_address addr = {
+            .value = 0xbc9a7856341221bc,
+        };
+        
+        uint64_t mid = PICO_GET_GNADDR_MID(addr.value);
+        fail_if(mid != 0xbc9a78563412, "PICO_GET_GNADDR_MID failed. Expected %"PRIx64", got %"PRIx64, 0xbc9a78563412, mid);
+        uint16_t country_code = PICO_GET_GNADDR_COUNTRY_CODE(addr.value);
+        fail_if(country_code != 33, "PICO_GET_GNADDR_COUNTRY_CODE failed. Expected %hu, got %hu", 33, country_code);
+        uint8_t manual = PICO_GET_GNADDR_MANUAL(addr.value);
+        fail_if(manual != 1, "PICO_GET_GNADDR_MANUAL failed. Expected %u, got %u", 1, manual);
+        uint16_t station_type = PICO_GET_GNADDR_STATION_TYPE(addr.value);
+        fail_if(station_type != 15, "PICO_GET_GNADDR_STATION_TYPE failed. Expected %hu got %hu.", 15, station_type);
+    }
+    { // Test GET functions from SET assignments.
+        struct pico_gn_address *addr = PICO_ZALLOC(PICO_SIZE_GNADDRESS);
+        addr->value = 0;
+        
+        uint8_t  manual = 0x00;
+        uint8_t  station_type = 0xB;
+        uint16_t country_code = 0x326;
+        uint64_t mid = 0x0CFCAF36F200;
+
+        PICO_SET_GNADDR_MANUAL(addr->value, manual);
+        fail_if(PICO_GET_GNADDR_MANUAL(addr->value) != manual, "PICO_SET_GNADDR_MANUAL failed. Expected %u, got %u", manual, PICO_GET_GNADDR_MANUAL(addr->value));
+
+        PICO_SET_GNADDR_STATION_TYPE(addr->value, station_type);
+        fail_if(PICO_GET_GNADDR_STATION_TYPE(addr->value) != station_type, "PICO_SET_GNADDR_STATION_TYPE failed. Expected %hu got %hu.", station_type, PICO_GET_GNADDR_STATION_TYPE(addr->value));
+
+        PICO_SET_GNADDR_COUNTRY_CODE(addr->value, country_code);
+        fail_if (PICO_GET_GNADDR_COUNTRY_CODE(addr->value) != country_code, "PICO_SET_GNADDR_COUNTRY_CODE failed. Expected %hu, got %hu", country_code, PICO_GET_GNADDR_COUNTRY_CODE(addr->value));
+
+        PICO_SET_GNADDR_MID(addr->value, mid);
+        fail_if (PICO_GET_GNADDR_MID(addr->value) != mid, "PICO_SET_GNADDR_MID failed. Expected %"PRIx64", got %"PRIx64, mid, PICO_GET_GNADDR_MID(addr->value));
+    }
 }
 END_TEST
 
@@ -114,6 +155,10 @@ Suite *pico_suite(void)
     TCase *TCase_pico_gn_loct_add = tcase_create("Unit test for pico_gn_loct_add");
     tcase_add_test(TCase_pico_gn_loct_add, tc_pico_gn_loct_add);
     suite_add_tcase(s, TCase_pico_gn_loct_add);
+    
+    TCase *TCase_pico_gn_address = tcase_create("Unit test for GeoNetworking address");
+    tcase_add_test(TCase_pico_gn_address, pico_gn_address);
+    suite_add_tcase(s, TCase_pico_gn_address);
     
     return s;
 }
