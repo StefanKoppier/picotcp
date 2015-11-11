@@ -97,16 +97,15 @@ struct pico_gn_header_info
 
 extern const struct pico_gn_header_info header_info_invalid;
 
-// The next GET and SET defines are probably broken.
-#define PICO_GET_GNADDR_MANUAL(x) ((uint8_t)((x & 0x10) >> 1))
-#define PICO_GET_GNADDR_STATION_TYPE(x) ((uint8_t)((x >> 1) & 0x1F))
-#define PICO_GET_GNADDR_COUNTRY_CODE(x) ((uint16_t)((x >> 6) & 0x3FF))
+#define PICO_GET_GNADDR_MANUAL(x) ((uint8_t)((x >> 7) & 0x01))
+#define PICO_GET_GNADDR_STATION_TYPE(x) ((uint8_t)((x >> 2) & 0x1F))
+#define PICO_GET_GNADDR_COUNTRY_CODE(x) ((uint16_t)(short_be(((uint16_t*)&x)[0]) & 0x3FF))
 #define PICO_GET_GNADDR_MID(x) ((uint64_t)(x >> 16))
 
-#define PICO_SET_GNADDR_MANUAL(x, v) x = ((x & (~(uint64_t)0x1)) | (v & (uint64_t)0x1))
-#define PICO_SET_GNADDR_STATION_TYPE(x, v) x = ((x & (~(uint64_t)0x3E)) | (v & (uint64_t)0x3E))
-#define PICO_SET_GNADDR_COUNTRY_CODE(x, v) x = ((x & (~(uint64_t)0xFFC0)) | (v & (uint64_t)0xFFC0))
-#define PICO_SET_GNADDR_MID(x, v) x = ((x & (~(uint64_t)0xFFFFFFFFFFFF0000)) | (v & (uint64_t)0xFFFFFFFFFFFF0000))
+#define PICO_SET_GNADDR_MANUAL(x, v) x = (((x & (~(uint64_t)0x80))) | ((v << 7) & 0x80))
+#define PICO_SET_GNADDR_STATION_TYPE(x, v) x = (((x & (~(uint64_t)0x7C))) | ((v << 2) & 0x7C))
+#define PICO_SET_GNADDR_COUNTRY_CODE(x, v) x = (((x & (~(uint64_t)0xFF03))) | (short_be(v) & 0xFF03))
+#define PICO_SET_GNADDR_MID(x, v) x = (((x & (~(uint64_t)0xFFFFFFFFFFFF0000))) | ((v << 16) & (uint64_t)0xFFFFFFFFFFFF0000))
 
 #define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
 /// The GeoNetworking address that uniquely identifies a GeoNetworking entity.
