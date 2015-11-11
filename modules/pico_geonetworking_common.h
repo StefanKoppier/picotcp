@@ -336,12 +336,6 @@ int32_t pico_gn_fetch_loct_sequence_number(struct pico_gn_address *addr);
 ///  \returns The (32-bit) sequence number on success, -1 when not found.
 int64_t pico_gn_fetch_loct_timestamp(struct pico_gn_address *addr);
 
-/// Method for achieving uniqueness of the GeoNetworking address of the local system.
-/// This is done when a packet is received. The GeoAdhoc router checks is the received address is equals to the local address.
-/// If so, the local address shall be updated.
-///  \param f The received frame to check against.
-void pico_gn_detect_duplicate_address(struct pico_frame *f);
-
 /// Method for comparing two \struct pico_gn_link structs.
 /// This function is used by the \struct pico_tree to insert, find and delete a LocTE inside the \struct pico_tree.
 ///  \param a The reference to the first \struct pico_gn_link.

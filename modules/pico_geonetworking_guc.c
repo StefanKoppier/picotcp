@@ -1,5 +1,6 @@
 #include "pico_geonetworking_guc.h"
 #include "pico_tree.h"
+#include "pico_geonetworking_common.h"
 
 const struct pico_gn_header_info guc_header_type = {
     .header     = 2,
@@ -24,17 +25,13 @@ int pico_gn_process_guc_in(struct pico_frame *f)
     struct pico_gn_link *entry;
     int found_in_devices = 0;
     
-    dbg("Received a GeoNetworking address: \n");
-    dbg("manual: %d\n", PICO_GET_GNADDR_MANUAL(dest_addr->value));
-    dbg("station_type: %d\n", PICO_GET_GNADDR_STATION_TYPE(dest_addr->value));
-    dbg("country_code: %d\n", PICO_GET_GNADDR_COUNTRY_CODE(dest_addr->value));
-    dbg("mid: %016llX\n\n", PICO_GET_GNADDR_MID(dest_addr->value));
-      
-    
+    dbg("Received: %lx\n", dest_addr->value);
+    dbg("Received addr: %lx\n", PICO_GET_GNADDR_MID(dest_addr->value));
+        
     // ACT IF A MID FIELD OF ALL 1's IS FOR THIS GEOADHOC ROUTER.
     // THIS IS NOT PART OF THE GEONETWORKING STANDARD AND MUST BE REMOVED WHEN TWHE PROTOCOL IS DEPLOYED.
     // THIS IS A POTENTIAL UNDEFINED BEHAVIOUR CAUSE IF THE DEST ADDR IS ACTUALY ALL 1's BUT NOT DETERMINDED FOR THIS GEOADHOC ROUTER
-    if (PICO_GET_GNADDR_MID(dest_addr->value) == 0xFFFFFFFFFFFF)
+    if (PICO_GET_GNADDR_MID(dest_addr->value) == 0xbc9a78563412)
     {
         found_in_devices = 1;
     }
@@ -46,7 +43,7 @@ int pico_gn_process_guc_in(struct pico_frame *f)
         pico_tree_foreach(index, &pico_gn_dev_link) {
             entry = (struct pico_gn_link*)index->keyValue;
 
-            dbg("Device: [%d] with address %ld \n", ++i, entry->address.value);
+            dbg("Device: [%d] with address %ld \n", ++i, PICO_GET_GNADDR_MID(entry->address.value));
 
             if (pico_gn_address_equals(dest_addr, &entry->address))
             {
@@ -68,9 +65,10 @@ int pico_gn_process_guc_receive(struct pico_frame *f)
     struct pico_gn_guc_header *extended = (struct pico_gn_guc_header*)(f->net_hdr + PICO_SIZE_GNHDR);
     struct pico_gn_header *header = (struct pico_gn_header*)f->net_hdr;
     struct pico_gn_address *source_addr = &extended->source.short_pv.address;
-    struct pico_gn_location_table_entry *locte = NULL;
+    struct pico_gn_location_table_entry *locte = pico_gn_loct_find(source_addr);
     int is_duplicate = pico_gn_detect_duplicate_sntst_packet(f);
-
+    struct pico_tree_node *index;
+    
     // Check if this packet is a duplicate.
     switch (is_duplicate)
     {
@@ -83,11 +81,17 @@ int pico_gn_process_guc_receive(struct pico_frame *f)
         return is_duplicate;
     }
 
-    // Check (and possibly update) the local address for duplicate addresses.
-    pico_gn_detect_duplicate_address(f); // Maybe split to detecting and changing the address
+    // Check the local address for duplicate addresses, if that's so, update it.
+    pico_tree_foreach(index, &pico_gn_dev_link) {
+        struct pico_gn_link *entry = (struct pico_gn_link*)index->keyValue;
 
-    // Check if the address already has an entry for this PV.
-    locte = pico_gn_loct_find(source_addr);
+        if (PICO_GET_GNADDR_MID(entry->address.value) == PICO_GET_GNADDR_MID(source_addr->value))
+        {
+            pico_gn_create_address_auto(&entry->address, PICO_GET_GNADDR_STATION_TYPE(entry->address.value), PICO_GET_GNADDR_COUNTRY_CODE(entry->address.value));
+            dbg("The address is a duplicate. Refreshing the address.\n");
+            break;
+        }
+    }
     
     if (!locte)
     {

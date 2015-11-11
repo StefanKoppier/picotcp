@@ -1,6 +1,7 @@
 #include "pico_geonetworking_common.h"
 #include "pico_geonetworking_guc.h"
 
+#include "pico_config.h"
 #include "pico_frame.h"
 #include "pico_stack.h"
 #include "pico_eth.h"
@@ -71,6 +72,7 @@ int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method m
     }
     
     link->dev = dev;
+    link->address.value = 0;
     
     switch (method)
     {
@@ -94,17 +96,19 @@ int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method m
         return -1;
     }
     
-    pico_tree_insert(&pico_gn_dev_link, &link);
+    pico_tree_insert(&pico_gn_dev_link, link);
     return 0;
 }
 
+uint64_t i = 0x123;
 int pico_gn_create_address_auto(struct pico_gn_address* result, uint8_t station_type, uint16_t country_code)
 {
     PICO_SET_GNADDR_MANUAL(result->value, 0); // Should be 1?
     PICO_SET_GNADDR_STATION_TYPE(result->value, station_type);
     PICO_SET_GNADDR_COUNTRY_CODE(result->value, country_code);
-    PICO_SET_GNADDR_MID(result->value, ((((uint64_t)pico_rand()) << 32) | ((uint64_t)pico_rand())));
-    
+    //PICO_SET_GNADDR_MID(result->value, ((((uint64_t)pico_rand()) << 32) | ((uint64_t)pico_rand()))); // DYNAMIC RANDOM
+    PICO_SET_GNADDR_MID(result->value, (long_long_be(i++) >> 16)); // STATIC
+       
     return 0;
 }
 
@@ -150,7 +154,7 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     const struct pico_gn_header_info *info; 
     IGNORE_PARAMETER(self);
     
-    if (!h || extended_length < 0)
+    if (extended_length < 0)
     {
         dbg("No header or an invalid extended header.\n");
         // TODO: Set error code to something.
@@ -281,34 +285,39 @@ int pico_gn_loct_update(struct pico_gn_address *address, struct pico_gn_lpv *vec
 
 struct pico_gn_location_table_entry *pico_gn_loct_add(struct pico_gn_address *address)
 {
-    struct pico_gn_location_table_entry *entry = pico_gn_loct_find(address);
-    
-    if (!entry)
+    if (address)
     {
-        entry = PICO_ZALLOC(PICO_SIZE_GNLOCTE);
-        
+        struct pico_gn_location_table_entry *entry = pico_gn_loct_find(address);
+
         if (!entry)
         {
-            pico_err = PICO_ERR_ENOMEM;
-            return NULL;
+            entry = PICO_ZALLOC(PICO_SIZE_GNLOCTE);
+
+            if (!entry)
+            {
+                pico_err = PICO_ERR_ENOMEM;
+                return NULL;
+            }
+
+            entry->address = PICO_ZALLOC(PICO_SIZE_GNADDRESS);
+
+            if (!entry->address)
+            {
+                pico_err = PICO_ERR_ENOMEM;
+                PICO_FREE(entry);
+                return NULL;
+            }
+
+            memcpy(entry->address, address, PICO_SIZE_GNADDRESS);
+
+            if (pico_tree_insert(&pico_gn_loct, entry) == &LEAF)
+                return NULL;
         }
-        
-        entry->address = PICO_ZALLOC(PICO_SIZE_GNADDRESS);
-        
-        if (!entry->address)
-        {
-            pico_err = PICO_ERR_ENOMEM;
-            PICO_FREE(entry);
-            return NULL;
-        }
-        
-        memcpy(entry->address, address, PICO_SIZE_GNADDRESS);
-        
-        if (pico_tree_insert(&pico_gn_loct, entry) == &LEAF)
-            return NULL;
+
+        return entry;
     }
     
-    return entry;
+    return NULL;
 }
 
 /* HELPER FUNCTIONS */
@@ -450,12 +459,6 @@ int64_t pico_gn_fetch_loct_timestamp(struct pico_gn_address *addr)
         return entry->timestamp;
 }
 
-void pico_gn_detect_duplicate_address(struct pico_frame *f)
-{
-    IGNORE_PARAMETER(f);
-    // TODO: implement function
-}
-
 int pico_gn_link_compare(void *a, void *b)
 {
     struct pico_gn_link *link_a = (struct pico_gn_link*)a;
@@ -489,7 +492,7 @@ int pico_gn_locte_compare(void *a, void *b)
 
 int pico_gn_address_equals(struct pico_gn_address *a, struct pico_gn_address *b)
 {
-    return a->value == b->value;
+    return PICO_GET_GNADDR_MID(a->value) == PICO_GET_GNADDR_MID(b->value);
 }
 
 const struct pico_gn_header_info *pico_gn_get_header_info(struct pico_gn_header *header)
