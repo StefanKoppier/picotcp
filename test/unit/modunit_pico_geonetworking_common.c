@@ -25,6 +25,25 @@ void pico_gn_loct_clear(void)
     }
 }
 
+uint64_t pico_gn_mgmt_if_get_time(void)
+{
+    
+}
+
+struct pico_gn_local_position_vector pico_gn_mgmt_get_position_if(void)
+{
+    struct pico_gn_local_position_vector lpv = {
+        .accuracy = 1,
+        .heading = 0,
+        .latitude = 5000, // This value is non-sense, but valid.
+        .longitude = 4000, // This values are non-sense, but valid.
+        .speed = 0,
+        .timestamp = 1104922570ul,
+    };
+    
+    return lpv;
+}
+
 START_TEST(tc_pico_gn_loct_find)
 {
     /*pico_tree_empty(&pico_gn_loct);
@@ -37,6 +56,41 @@ END_TEST
 START_TEST(tc_pico_gn_loct_update)
 {
     
+}
+END_TEST
+
+START_TEST(tc_pico_gn_get_time)
+{
+    
+}
+END_TEST
+
+START_TEST(tc_pico_gn_get_position)
+{
+    struct pico_gn_local_position_vector lpv = {
+        .accuracy = 0,
+        .heading = 0,
+        .latitude = 0,
+        .latitude = 0,
+        .speed = 0,
+        .timestamp = 0,
+    };
+    
+    // Management interface not set, result of the get function should be -1.
+    int result = pico_gn_get_position(&lpv);
+    fail_if(result != -1, "Error: pico_gn_get_position with pico_gn_mgmt_interface.get_position == NULL should return -1.");
+    
+    pico_gn_mgmt_interface.get_position = pico_gn_mgmt_get_position_if;
+    
+    result = pico_gn_get_position(&lpv);
+    fail_if(result != 0, "Error: pico_gn_get_position with pico_gn_mgmt_interface.get_position != NULL should return 0.");
+    fail_if(lpv.accuracy != 1 || 
+            lpv.heading != 0 || 
+            lpv.latitude != 5000 || 
+            lpv.longitude != 4000 || 
+            lpv.speed != 0 || 
+            lpv.timestamp != 1104922570ul,
+            "Error: pico_gn_get_position doesn't return the correct function returned by the pico_gn_mgmt_interface.get_position interface.");
 }
 END_TEST
 
@@ -160,6 +214,10 @@ Suite *pico_suite(void)
     tcase_add_test(TCase_pico_gn_address, pico_gn_address);
     suite_add_tcase(s, TCase_pico_gn_address);
     
+    TCase *TCase_pico_gn_get_position = tcase_create("Unit test for GeoNetworking getting the Local Position.");
+    tcase_add_test(TCase_pico_gn_get_position, tc_pico_gn_get_position);
+    suite_add_tcase(s, TCase_pico_gn_get_position);
+        
     return s;
 }
 
