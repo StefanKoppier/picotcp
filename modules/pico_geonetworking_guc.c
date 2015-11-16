@@ -25,8 +25,7 @@ int pico_gn_process_guc_in(struct pico_frame *f)
     struct pico_gn_link *entry;
     int found_in_devices = 0;
     
-    dbg("Received: %lx\n", dest_addr->value);
-    dbg("Received addr: %lx\n", PICO_GET_GNADDR_MID(dest_addr->value));
+    dbg("Received address: %lx\n", dest_addr->value);
         
     // ACT IF A MID FIELD OF ALL 1's IS FOR THIS GEOADHOC ROUTER.
     // THIS IS NOT PART OF THE GEONETWORKING STANDARD AND MUST BE REMOVED WHEN TWHE PROTOCOL IS DEPLOYED.
@@ -37,13 +36,10 @@ int pico_gn_process_guc_in(struct pico_frame *f)
     }
     else
     {
-        int i = 0;    
         struct pico_tree_node *index;
         
         pico_tree_foreach(index, &pico_gn_dev_link) {
             entry = (struct pico_gn_link*)index->keyValue;
-
-            dbg("Device: [%d] with address %ld \n", ++i, PICO_GET_GNADDR_MID(entry->address.value));
 
             if (pico_gn_address_equals(dest_addr, &entry->address))
             {
