@@ -362,6 +362,10 @@ int pico_gn_address_equals(struct pico_gn_address *a, struct pico_gn_address *b)
 ///  \returns The extended header information, NULL on failure.
 const struct pico_gn_header_info *pico_gn_get_header_info(struct pico_gn_header *header);
 
+/// Gets the next available sequence number
+///  \returns The next sequence number.
+uint16_t pico_gn_get_sequence_number(void);
+
 /// Function for receiving the current time from the management interface.
 ///  \param result Sets the milliseconds elapsed since 2004-1-1 00:00:00.0000 modulo 2^32 inside the result.
 ///  \result 0 on success, -1 on failure.

@@ -520,6 +520,16 @@ const struct pico_gn_header_info *pico_gn_get_header_info(struct pico_gn_header 
         return lookup[header_index][subheader_index];
 }
 
+uint16_t pico_gn_get_sequence_number(void)
+{
+    static uint16_t sequence_number = 0;
+    
+    if (sequence_number == UINT16_MAX)
+        sequence_number = 0;
+    
+    return ++sequence_number;
+}
+
 int pico_gn_get_current_time(uint32_t *result)
 {
     // epoch since 2004-1-1 in milliseconds.
