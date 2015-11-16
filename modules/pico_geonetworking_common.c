@@ -1,4 +1,5 @@
 #include "pico_geonetworking_common.h"
+#include "pico_geonetworking_management.h"
 #include "pico_geonetworking_guc.h"
 
 #include "pico_config.h"
@@ -108,7 +109,7 @@ int pico_gn_create_address_auto(struct pico_gn_address* result, uint8_t station_
     PICO_SET_GNADDR_COUNTRY_CODE(result->value, country_code);
     //PICO_SET_GNADDR_MID(result->value, ((((uint64_t)pico_rand()) << 32) | ((uint64_t)pico_rand()))); // DYNAMIC RANDOM
     PICO_SET_GNADDR_MID(result->value, (long_long_be(i++) >> 16)); // STATIC
-       
+    
     return 0;
 }
 
@@ -153,7 +154,7 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     int64_t extended_length = pico_gn_find_extended_header_length(h);
     const struct pico_gn_header_info *info; 
     IGNORE_PARAMETER(self);
-    
+        
     if (extended_length < 0)
     {
         dbg("No header or an invalid extended header.\n");
@@ -517,4 +518,34 @@ const struct pico_gn_header_info *pico_gn_get_header_info(struct pico_gn_header 
         return &header_info_invalid;    
     else
         return lookup[header_index][subheader_index];
+}
+
+int pico_gn_get_current_time(uint32_t *result)
+{
+    // epoch since 2004-1-1 in milliseconds.
+    static const uint64_t epoch = 1072915200ul * 1000ul;
+    
+    if (pico_gn_mgmt_interface.get_time)
+    {
+        *result = (uint32_t)((pico_gn_mgmt_interface.get_time() - epoch) % UINT32_MAX);
+        return 0;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+int pico_gn_get_position(struct pico_gn_local_position_vector *result)
+{
+    if (pico_gn_mgmt_interface.get_position)
+    {
+        struct pico_gn_local_position_vector position = pico_gn_mgmt_interface.get_position();
+        memcpy(result, &position, PICO_SIZE_GNLOCAL_POSITION_VECTOR);
+        return 0;
+    }
+    else
+    {
+        return -1;
+    }
 }

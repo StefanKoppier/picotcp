@@ -12,6 +12,7 @@
 #include "pico_config.h"
 #include "pico_tree.h"
 
+#include "pico_geonetworking_management.h"
 
 #define PICO_GN_PROTOCOL_VERSION 0 // EN 302 636-4-1 v1.2.1
 
@@ -360,5 +361,15 @@ int pico_gn_address_equals(struct pico_gn_address *a, struct pico_gn_address *b)
 ///  \param header The header to find the extended header information for.
 ///  \returns The extended header information, NULL on failure.
 const struct pico_gn_header_info *pico_gn_get_header_info(struct pico_gn_header *header);
+
+/// Function for receiving the current time from the management interface.
+///  \param result Sets the milliseconds elapsed since 2004-1-1 00:00:00.0000 modulo 2^32 inside the result.
+///  \result 0 on success, -1 on failure.
+int pico_gn_get_current_time(uint32_t *result);
+
+/// Function for receiving the current position of the GeoAdhoc router from the management interface.
+///  \param result Sets the \struct pico_gn_local_position_vector to the current position.
+///  \result 0 on success, -1 on failure.
+int pico_gn_get_position(struct pico_gn_local_position_vector *result);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */
