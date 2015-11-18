@@ -60,22 +60,17 @@ extern struct pico_tree     pico_gn_dev_link;
 /// The method used to configure the GeoAdhoc router's GeoNetworking address.
 enum pico_gn_address_conf_method
 {
-    AUTO = 0, ///< Auto-address configuration. Generate a random address.
-    MANAGED = 1, ///< Managed address configuration. Request an address from the ITS Networking & Transport Layer Management entity. \bug This feature is not supported.
-    ANONYMOUS = 2 ///< Anonymous address configuration. Request an address from the security entity. \bug This feature is not supported.
+    AUTO      = 0, ///< Auto-address configuration. Generate a random address.
+    MANAGED   = 1, ///< Managed address configuration. Request an address from the ITS Networking & Transport Layer Management entity. \bug This feature is not supported.
+    ANONYMOUS = 2, ///< Anonymous address configuration. Request an address from the security entity. \bug This feature is not supported.
 };
 
 /// The logic link protocol to use beneath the GeoNetworking protocol.
 enum pico_gn_communication_profile
 {
     UNSPECIFIED = 0, ///< Unspecified protocol. This implemention of GeoNetworking assumes Ethernet.
-    ITSG5 = 1 ///< ITS-G5. NOT SUPPORTED.
+    ITSG5       = 1, ///< ITS-G5. NOT SUPPORTED.
 };
-
-typedef int                (*process_in)  (struct pico_frame*);
-typedef int                (*process_out) (struct pico_frame*);
-typedef int                (*socket_push) (struct pico_frame*);
-typedef struct pico_frame *(*alloc)       (uint16_t);
 
 /// Struct containing information about a specfic extended header.
 /// It's used in the extended header processing and finding specific fields in these extended headers.
@@ -90,10 +85,10 @@ struct pico_gn_header_info
         int32_t sequence_number; ///< The position of the sequence number.
         int32_t timestamp; ///< The position of the timestamp.
     } offsets; ///< Complex field containing the offsets of specific fields in the extended header in bytes. This offset starts at the beginning of the extended header.
-    process_in  in; ///< Function pointer to the extended header inward processing function.
-    process_out out; ///< Function pointer to the extended header outward processing function.
-    socket_push push; ///< Function pointer to the exteneded header socket push function.
-    alloc       alloc; ///< Function pointer to the extended header alloc function.
+    int                (*in)    (struct pico_frame *frame); ///< Function pointer to the extended header inward processing function.
+    int                (*out)   (struct pico_frame *frame); ///< Function pointer to the extended header outward processing function.
+    int                (*push)  (struct pico_frame *frame); ///< Function pointer to the exteneded header socket push function.
+    struct pico_frame *(*alloc) (uint16_t size); ///< Function pointer to the extended header alloc function.
 };
 
 extern const struct pico_gn_header_info header_info_invalid;
@@ -106,7 +101,7 @@ extern const struct pico_gn_header_info header_info_invalid;
 #define PICO_SET_GNADDR_MANUAL(x, v) x = (((x & (~(uint64_t)0x80))) | ((v << 7) & 0x80))
 #define PICO_SET_GNADDR_STATION_TYPE(x, v) x = (((x & (~(uint64_t)0x7C))) | ((v << 2) & 0x7C))
 #define PICO_SET_GNADDR_COUNTRY_CODE(x, v) x = (((x & (~(uint64_t)0xFF03))) | (short_be(v) & 0xFF03))
-#define PICO_SET_GNADDR_MID(x, v) x = (((x & (~(uint64_t)0xFFFFFFFFFFFF0000))) | ((v << 16) & (uint64_t)0xFFFFFFFFFFFF0000))
+#define PICO_SET_GNADDR_MID(x, v) x = (((x & (~0xFFFFFFFFFFFF0000ull))) | ((v << 16) & 0xFFFFFFFFFFFF0000ull))
 
 #define PICO_SIZE_GNADDRESS ((uint32_t)sizeof(struct pico_gn_address))
 /// The GeoNetworking address that uniquely identifies a GeoNetworking entity.

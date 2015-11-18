@@ -58,12 +58,13 @@ int pico_gn_process_guc_in(struct pico_frame *f)
 
 int pico_gn_process_guc_receive(struct pico_frame *f)
 { 
-    struct pico_gn_guc_header *extended = (struct pico_gn_guc_header*)(f->net_hdr + PICO_SIZE_GNHDR);
-    struct pico_gn_header *header = (struct pico_gn_header*)f->net_hdr;
-    struct pico_gn_address *source_addr = &extended->source.short_pv.address;
-    struct pico_gn_location_table_entry *locte = pico_gn_loct_find(source_addr);
-    int is_duplicate = pico_gn_detect_duplicate_sntst_packet(f);
-    struct pico_tree_node *index;
+    struct pico_gn_guc_header           *extended     = (struct pico_gn_guc_header*)(f->net_hdr + PICO_SIZE_GNHDR);
+    struct pico_gn_header               *header       = (struct pico_gn_header*)f->net_hdr;
+    struct pico_gn_lpv                  *source       = &extended->source;
+    struct pico_gn_address              *source_addr  = &extended->source.short_pv.address;
+    struct pico_gn_location_table_entry *locte        = pico_gn_loct_find(source_addr);
+    int                                  is_duplicate = pico_gn_detect_duplicate_sntst_packet(f);
+    struct pico_tree_node               *index        = NULL;
     
     // Check if this packet is a duplicate.
     switch (is_duplicate)
