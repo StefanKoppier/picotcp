@@ -1,6 +1,14 @@
 #include "pico_geonetworking_guc.h"
 #include "pico_tree.h"
 #include "pico_geonetworking_common.h"
+#include "pico_frame.h"
+#include "pico_geonetworking_management.h"
+
+int pico_gn_guc_send(struct pico_gn_address *destination, uint8_t* payload, size_t length)
+{
+    // TODO: IMPLEMENT FUNCTION
+    return -1;
+}
 
 const struct pico_gn_header_info guc_header_type = {
     .header     = 2,
@@ -11,10 +19,17 @@ const struct pico_gn_header_info guc_header_type = {
         .sequence_number = 0,
         .source_address  = 4,
     },
+    .push       = pico_gn_guc_push,
     .in         = pico_gn_process_guc_in,
     .out        = pico_gn_process_guc_out,
     .alloc      = pico_gn_guc_alloc,
 };
+
+int pico_gn_guc_push(struct pico_frame *f)
+{
+    // TODO: implement function
+    return -1;
+}
 
 int pico_gn_process_guc_in(struct pico_frame *f)
 {

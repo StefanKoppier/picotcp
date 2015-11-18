@@ -28,6 +28,19 @@ PACKED_STRUCT_DEF pico_gn_guc_header
     struct pico_gn_spv destination; ///< Destination Short Position Vector containing the position of the destination.
 };
 
+/// Function to send a GeoUnicast packet.
+/// This function should only be called directly for debugging/testing purposes, sending from a layer above GeoNetworking should be done using the push function.
+///  \param destination The destination of this GeoUnicast packet.
+///  \param payload The payload to send.
+///  \param length The length of the payload.
+///  \returns 0 on success, -1 on failure.
+int pico_gn_guc_send(struct pico_gn_address *destination, uint8_t* payload, size_t length);
+
+/// Enqueues an initialized packet with an initialized GeoUnicast header into the outgoing queue.
+///  \param f The frame representing the complete packet.
+///  \returns -1 on failure, 0 on success.
+int pico_gn_guc_push(struct pico_frame *f);
+
 /// Allocating of an GeoUnicast frame.
 ///  \param size The size of the payload.
 ///  \returns The allocated GUC frame, NULL on failure.
