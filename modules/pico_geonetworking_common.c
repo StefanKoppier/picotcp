@@ -9,6 +9,8 @@
 #include "pico_addressing.h"
 #include "pico_tree.h"
 
+#include <math.h>
+
 #define PICO_GN_HEADER_COUNT    7 // Maximum number of extended headers defined. Used for the creation of lookup tables.
 #define PICO_GN_SUBHEADER_COUNT 3 // Maximum number of extended sub-headers defined. Used for the creation of lookup tables.
 
@@ -558,4 +560,25 @@ int pico_gn_get_position(struct pico_gn_local_position_vector *result)
     {
         return -1;
     }
+}
+
+#define TO_RAD (3.1415926536 / 180)
+double pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b)
+{
+    static const double r = 6371;
+    double th1 = (double)lat_a / 10000;
+    double ph1 = (double)long_a / 10000;
+    
+    double th2 = (double)lat_b / 10000;
+    double ph2 = (double)long_b / 10000;
+   
+    double dx, dy, dz;
+    ph1 -= ph2;
+    ph1 *= TO_RAD, th1 *= TO_RAD, th2 *= TO_RAD;
+
+    dz = sin(th1) - sin(th2);
+    dx = cos(ph1) * cos(th1) - cos(th2);
+    dy = sin(ph1) * cos(th1);
+    
+    return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * r;
 }

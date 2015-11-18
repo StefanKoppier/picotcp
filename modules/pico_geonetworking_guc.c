@@ -162,3 +162,61 @@ struct pico_frame *pico_gn_guc_alloc(uint16_t size)
     // TODO: implement function.
     return NULL;
 }
+
+uint64_t pico_gn_guc_greedy_forwarding(const struct pico_gn_spv *dest, const struct pico_gn_traffic_class *traffic_class)
+{
+    struct pico_gn_local_position_vector lpv            = {0};
+    struct pico_tree_node               *index          = NULL;
+    double                               distance_best  = 0;
+    struct pico_gn_location_table_entry *hop_best       = NULL;
+    uint64_t                             mid_best       = 0;
+    uint8_t                              has_neighbours = 0;
+    
+    // Get the Local Position Vector.
+    pico_gn_get_position(&lpv);
+    
+    distance_best = pico_gn_calculate_distance(dest->latitude, dest->longitude, lpv.latitude, lpv.longitude);
+    
+    // Find the entry that is the best choice for forwarding.
+    pico_tree_foreach(index, &pico_gn_loct) {
+        struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
+        
+        // Check if the entry is a neighbour.
+        if (entry->is_neighbour)
+        {
+            double distance_current = pico_gn_calculate_distance(
+                    dest->latitude, dest->longitude,
+                    entry->position_vector->short_pv.latitude, entry->position_vector->short_pv.longitude);
+            
+            has_neighbours = 1;
+            
+            // Check is this entry is a better choice than the previous.
+            if (distance_current < distance_best)
+            {
+                distance_best = distance_current;
+                hop_best = entry;
+            }
+        }
+    }
+    
+    // Check if the destination is closer than the nearest neighbour, if so forward to the destination.
+    if (distance_best < pico_gn_calculate_distance(dest->latitude, dest->longitude, lpv.latitude, lpv.longitude))
+    {
+        mid_best = PICO_GET_GNADDR_MID(hop_best->address->value);
+    }
+    else // There is a neighbour closer than the destination, forward to this.
+    {
+        if (!has_neighbours && PICO_GET_GNTRAFFIC_CLASS_SCF((traffic_class)) == 1)
+        {
+            // TODO: Add this frame to the forwarding packet buffer
+            mid_best = 0;
+        }
+        else
+        {
+            // This packet cannot be forwarded or stored, try to broadcast it.
+            mid_best = 0xFFFFFFFFFFFF;
+        }
+    }
+    
+    return mid_best;
+}

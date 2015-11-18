@@ -152,13 +152,14 @@ PACKED_STRUCT_DEF pico_gn_spv
 {
     struct pico_gn_address address; ///< The GeoNetworking address of which this \struct pico_gn_spv belongs to.
     uint32_t               timestamp; ///< The time in milliseconds at which the latitude and longitude were acuired.
-    uint32_t               latitude; ///< The latitude of the GeoAdhoc router reference position expressed in 1/10 micro degree.
-    uint32_t               longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
+    int32_t                latitude; ///< The latitude of the GeoAdhoc router reference position expressed in 1/10 micro degree.
+    int32_t                longitude; ///< The longitude of the GeoAdhoc router reference position expresssed in 1/10 micro degree.
 };
 
-// THE NEXT TWO DEFINES ARE PROBABLY BROKEN
-#define PICO_GET_GNLPV_ACCURACY(x) (x & 0x01))
-#define PICO_GET_GNLPV_SPEED(x) (x >> 1)
+#define PICO_GET_GNLPV_ACCURACY(x) ((x >> 7) & 0x01)
+#define PICO_GET_GNLPV_SPEED(x) (short_be(x) & 0x7FFF)
+#define PICO_SET_GNLPV_ACCURACY(x, v) x = (((x & (~(uint16_t)0x80))) | ((v << 7) & 0x80))
+#define PICO_SET_GNLPV_SPEED(x,v ) x = (((x & (~(uint16_t)0xFF7F))) | (short_be(v) & 0xFF7F))
 #define PICO_SIZE_GNLPV ((uint32_t)sizeof(struct pico_gn_lpv))
 /// The Long Position Vector containing all position-related information.
 PACKED_STRUCT_DEF pico_gn_lpv
@@ -187,6 +188,16 @@ PACKED_STRUCT_DEF pico_gn_basic_header
     uint8_t remaining_hop_limit; ///< Decrembented by 1 by each GeoAdhoc router that forwards the packet. The packet shall not be forwarded if RHL is decremented to zero.
 };
 
+#define PICO_GET_GNTRAFFIC_CLASS_SCF(x) ((x->value >> 7) & 0x01)
+#define PICO_GET_GNTRAFFIC_CLASS_CHANNEL_OFFLOAD(x) ((x->value >> 6) & 0x01)
+#define PICO_GET_GNTRAFFIC_CLASS_ID(x) (x->value & 0x3F)
+#define PICO_SIZE_GNTRAFFIC_CLASS (sizeof(struct pico_gn_traffic_class)))
+/// The traffic class used for traffic classification which is used for particular mechanisms for data traffic management.
+PACKED_STRUCT_DEF pico_gn_traffic_class
+{
+    uint8_t value; ///< The first bit identify the SCF-field. The next bit identify channel offload field. The last six bits identify the ID of the traffic class.
+};
+
 #define PICO_GET_GNCOMMONHDR_NEXT_HEADER(x) ((enum pico_gn_common_header_next_header)((x & 0xF0) >> 4))
 #define PICO_GET_GNCOMMONHDR_HEADER(x) ((x & 0xF0) >> 4)
 #define PICO_GET_GNCOMMONHDR_SUBHEADER(x) (x & 0x0F)
@@ -194,13 +205,13 @@ PACKED_STRUCT_DEF pico_gn_basic_header
 /// The Common Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_common_header
 {
-    uint8_t  next_header; ///< The first four bits identify the type of header immediately following the GeoNetworking headers. This value should be one of the following: PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B or PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6. The last four bits are reserved and must be set to 0.
-    uint8_t  header; ///< The first four bits identify the type of the GeoNetworking extended header The last four bits identify the sub-type of the GeoNetworking extended header.
-    uint8_t  traffic_class; ///< Traffic class that represents Facility-layer requirements on packet transport.
-    uint8_t  flags; ///< Bit 0: Indicates whether the ITS-S is mobile or stationary. Bit 1 to 7: Reserved, should be set to 0.
-    uint16_t payload_length; ///< Length of the GeoNetworking payload, i.e. the rest of the packet following the whole GeoNetworking header in octets.
-    uint8_t  maximum_hop_limit; ///< Maximum hop limit, this value is NOT decremented by a GeoAdhoc router that forwards the packet.
-    uint8_t  reserved_2; ///< Reserved, should be set to 0.
+    uint8_t                      next_header; ///< The first four bits identify the type of header immediately following the GeoNetworking headers. This value should be one of the following: PICO_GN_COMMON_HEADER_NEXT_HEADER_ANY, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_A, PICO_GN_COMMON_HEADER_NEXT_HEADER_BTP_B or PICO_GN_COMMON_HEADER_NEXT_HEADER_IPv6. The last four bits are reserved and must be set to 0.
+    uint8_t                      header; ///< The first four bits identify the type of the GeoNetworking extended header The last four bits identify the sub-type of the GeoNetworking extended header.
+    struct pico_gn_traffic_class traffic_class; ///< Traffic class that represents Facility-layer requirements on packet transport.
+    uint8_t                      flags; ///< Bit 0: Indicates whether the ITS-S is mobile or stationary. Bit 1 to 7: Reserved, should be set to 0.
+    uint16_t                     payload_length; ///< Length of the GeoNetworking payload, i.e. the rest of the packet following the whole GeoNetworking header in octets.
+    uint8_t                      maximum_hop_limit; ///< Maximum hop limit, this value is NOT decremented by a GeoAdhoc router that forwards the packet.
+    uint8_t                      reserved_2; ///< Reserved, should be set to 0.
 };
 
 #define PICO_SIZE_GNHDR ((uint32_t)sizeof(struct pico_gn_header))
@@ -219,7 +230,7 @@ PACKED_STRUCT_DEF pico_gn_data_request
     uint8_t                            type; // The GeoNetworking packet type. 
     union pico_gn_destination         *destination; ///< The destination of this request.
     enum pico_gn_communication_profile communication_profile; ///< Specifies the underlying logic link protocol to use. This can either be unspecified (Ethernet for this implementation) ITS-G5 (NOT SUPPORTED).
-    uint8_t                            traffic_class; ///< The traffic class for this request.
+    struct pico_gn_traffic_class       traffic_class; ///< The traffic class for this request.
 };
 
 /// Function for adding this \struct pico_device to the GeoAdhoc router.
@@ -375,5 +386,13 @@ int pico_gn_get_current_time(uint32_t *result);
 ///  \param result Sets the \struct pico_gn_local_position_vector to the current position.
 ///  \result 0 on success, -1 on failure.
 int pico_gn_get_position(struct pico_gn_local_position_vector *result);
+
+/// Calculates the distance between two points using the haversine formula.
+///  \param lat_a The latitude of point a.
+///  \param long_a The longitude of point a.
+///  \param lat_b The latitude of point b.
+///  \param long_b The longitude of point b.
+///  \returns The distance between a and b in kilometers.
+double pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */

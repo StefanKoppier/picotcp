@@ -12,6 +12,10 @@
 #include "pico_config.h"
 #include "pico_stack.h"
 
+#define PICO_GN_GUC_GREEDY_FORWARDING_ALGORITHM           1
+#define PICO_GN_GUC_CONTENTION_BASED_FORWARDING_ALGORITHM 2 // Not supported in this implementation, only greedy is.
+#define PICO_GN_GUC_FORWARDING_ALGORITHM                  PICO_GN_GUC_GREEDY_FORWARDING_ALGORITHM
+
 extern const struct pico_gn_header_info guc_header_type; 
 
 #define PICO_SIZE_GUCHDR ((uint32_t)sizeof(struct pico_gn_guc_header))
@@ -48,6 +52,8 @@ int pico_gn_process_guc_forward(struct pico_frame *f);
 ///  \param f Te frame which contains the GeoUnicast header.
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_guc_out(struct pico_frame *f);
+
+uint64_t pico_gn_guc_greedy_forwarding(const struct pico_gn_spv *dest, const struct pico_gn_traffic_class *traffic_class);
 
 #endif /* INCLUDE_PICO_GEONETWORKING_GUC */
 
