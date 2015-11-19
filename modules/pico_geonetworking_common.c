@@ -137,7 +137,7 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
     IGNORE_PARAMETER(self);
     
     // Make sure the next alloc header is valid.
-    if (next_alloc_header_type && next_alloc_header_type != header_info_invalid)
+    if (next_alloc_header_type && next_alloc_header_type != &header_info_invalid)
     {
         f = next_alloc_header_type->alloc(size);
 
@@ -146,10 +146,10 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
         {
             f->datalink_hdr  = f->buffer;
             f->net_hdr       = f->buffer + PICO_SIZE_ETHHDR; // This should be changed to the size of the underlying LLC protocol. Currently only Ethernet is supported, so this is sufficient for now.
-            f->net_len       = PICO_SIZE_GNHDR + next_alloc_header_type->size;
+            f->net_len       = (uint16_t)(PICO_SIZE_GNHDR + next_alloc_header_type->size);
             f->transport_hdr = f->net_hdr + f->net_len;
             f->transport_len = size;
-            f->len           = size + f->net_len;
+            f->len           = size + (PICO_SIZE_GNHDR + next_alloc_header_type->size);
         }
     }
     else
