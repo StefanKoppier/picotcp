@@ -175,7 +175,7 @@ int pico_gn_process_guc_out(struct pico_frame *f)
 
 struct pico_frame *pico_gn_guc_alloc(uint16_t size)
 {
-    struct pico_frame *f = PICO_ZALLOC(PICO_SIZE_GNHDR + PICO_SIZE_GUCHDR + size);
+    struct pico_frame *f = PICO_ZALLOC(PICO_SIZE_ETHHDR + PICO_SIZE_GNHDR + PICO_SIZE_GUCHDR + size);
     
     if (!f)
         pico_err = PICO_ERR_ENOMEM;
