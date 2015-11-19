@@ -3,7 +3,7 @@
 
 Suite *pico_suite(void)
 {
-    Suite *s = suite_create("GeoNetworking module");
+    Suite *s = suite_create("GeoNetworking management module");
     
     return s;
 }
