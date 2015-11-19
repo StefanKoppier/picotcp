@@ -21,6 +21,8 @@ static struct pico_queue gn_out = {0}; // Outgoing frame queue
 
 volatile struct pico_gn_header_info *next_alloc_header_type = NULL;
 
+const struct pico_gn_traffic_class pico_gn_traffic_class_default = {0};
+
 struct pico_protocol pico_proto_geonetworking = {
     .name = "geonetworking",
     .proto_number = PICO_PROTO_GEONETWORKING,

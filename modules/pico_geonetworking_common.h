@@ -173,6 +173,8 @@ union pico_gn_destination
 
 #define PICO_GET_GNBASICHDR_VERSION(x) ((x & 0xF0) >> 4)
 #define PICO_GET_GNBASICHDR_NEXT_HEADER(x) ((enum pico_gn_basic_header_next_header)(x & 0x0F))
+#define PICO_SET_GNBASICHDR_VERSION(x, v) x = ((x & (~0xF0)) | (((v << 4) & 0xF0)))
+#define PICO_SET_GNBASICHDR_NEXT_HEADER(x, v) x = ((x & (~0x0F)) | ((((uint8_t)v) & 0x0F)))
 #define PICO_SIZE_GNBASICHDR ((uint32_t)sizeof(struct pico_gn_basic_header))
 /// The Basic Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_basic_header 
@@ -193,9 +195,15 @@ PACKED_STRUCT_DEF pico_gn_traffic_class
     uint8_t value; ///< The first bit identify the SCF-field. The next bit identify channel offload field. The last six bits identify the ID of the traffic class.
 };
 
+extern const struct pico_gn_traffic_class pico_gn_traffic_class_default;
+
 #define PICO_GET_GNCOMMONHDR_NEXT_HEADER(x) ((enum pico_gn_common_header_next_header)((x & 0xF0) >> 4))
 #define PICO_GET_GNCOMMONHDR_HEADER(x) ((x & 0xF0) >> 4)
 #define PICO_GET_GNCOMMONHDR_SUBHEADER(x) (x & 0x0F)
+
+#define PICO_SET_GNCOMMONHDR_NEXT_HEADER(x, v) x = (((x & (~0xF0))) | (((uint8_t)v << 4) & 0xF0))
+#define PICO_SET_GNCOMMONHDR_HEADER(x, v) x = (((x & (~0xF0))) | ((v << 4) & 0xF0))
+#define PICO_SET_GNCOMMONHDR_SUBHEADER(x, v) x = (((x & (~0x0F))) | (v & 0x0F))
 #define PICO_SIZE_GNCOMMONHDR ((uint32_t)sizeof(struct pico_gn_common_header))
 /// The Common Header is a header present in every GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_common_header
