@@ -19,6 +19,8 @@
 static struct pico_queue gn_in  = {0}; // Incoming frame queue
 static struct pico_queue gn_out = {0}; // Outgoing frame queue
 
+volatile struct pico_gn_header_info *next_alloc_header_type = NULL;
+
 struct pico_protocol pico_proto_geonetworking = {
     .name = "geonetworking",
     .proto_number = PICO_PROTO_GEONETWORKING,
@@ -131,20 +133,30 @@ int pico_gn_create_address_anonymous(struct pico_gn_address* result)
 
 struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
 {
-    struct pico_frame *f = pico_frame_alloc(PICO_SIZE_ETHHDR + PICO_SIZE_GNHDR /* + Specific extended header size */ + size);
+    struct pico_frame *f = NULL;
     IGNORE_PARAMETER(self);
     
-    dbg("pico_gn_alloc.\n");
+    // Make sure the next alloc header is valid.
+    if (next_alloc_header_type && next_alloc_header_type != header_info_invalid)
+    {
+        f = next_alloc_header_type->alloc(size);
+
+        // If there was enough memory, set the headers and their lengths
+        if (f)
+        {
+            f->datalink_hdr  = f->buffer;
+            f->net_hdr       = f->buffer + PICO_SIZE_ETHHDR; // This should be changed to the size of the underlying LLC protocol. Currently only Ethernet is supported, so this is sufficient for now.
+            f->net_len       = PICO_SIZE_GNHDR + next_alloc_header_type->size;
+            f->transport_hdr = f->net_hdr + f->net_len;
+            f->transport_len = size;
+            f->len           = size + f->net_len;
+        }
+    }
+    else
+    {
+        // TODO: set error code to something
+    }
     
-    if (!f)
-        return NULL;
-    
-    f->datalink_hdr = f->buffer;
-    f->net_hdr = f->buffer + PICO_SIZE_ETHHDR;
-    f->net_len = PICO_SIZE_GNHDR /* + Specific extended header size */;
-    f->transport_hdr = f->net_hdr + PICO_SIZE_GNHDR /* + Specific extended header size */;
-    f->transport_len = size;
-    f->len = size + PICO_SIZE_GNHDR /* + Specific extended header size */;
     return f;
 }
 

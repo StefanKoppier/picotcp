@@ -175,8 +175,12 @@ int pico_gn_process_guc_out(struct pico_frame *f)
 
 struct pico_frame *pico_gn_guc_alloc(uint16_t size)
 {
-    // TODO: implement function.
-    return NULL;
+    struct pico_frame *f = PICO_ZALLOC(PICO_SIZE_GNHDR + PICO_SIZE_GUCHDR + size);
+    
+    if (!f)
+        pico_err = PICO_ERR_ENOMEM;
+                
+    return f;
 }
 
 uint64_t pico_gn_guc_greedy_forwarding(const struct pico_gn_spv *dest, const struct pico_gn_traffic_class *traffic_class)
