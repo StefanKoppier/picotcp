@@ -259,7 +259,7 @@ int pico_gn_create_address_anonymous(struct pico_gn_address *result);
 /// Interface implementation which allows allocation of a GeoNetworking frame.
 ///  \param self The protocol definition, this protocol will always be pico_proto_geonetworking.
 ///  \param size The size of the payload to be allocated.
-///  \returns An GeoNetworking frame with the header sizes set correctly.
+///  \returns A GeoNetworking frame with the header sizes set correctly.
 struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size);
 
 /// Interface implementation which allows the processing of incoming frames, from the Data Link Layer.
