@@ -1,4 +1,4 @@
-#include "pico_geonetworking_common.c"
+#include "modules/pico_geonetworking_common.c"
 #include "check.h"
 #include "pico_geonetworking_guc.h"
 

@@ -206,7 +206,7 @@ uint64_t pico_gn_guc_greedy_forwarding(const struct pico_gn_spv *dest, const str
         {
             double distance_current = pico_gn_calculate_distance(
                     dest->latitude, dest->longitude,
-                    entry->position_vector->short_pv.latitude, entry->position_vector->short_pv.longitude);
+                    entry->position_vector.short_pv.latitude, entry->position_vector.short_pv.longitude);
             
             has_neighbours = 1;
             

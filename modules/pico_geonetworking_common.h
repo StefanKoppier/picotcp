@@ -117,30 +117,6 @@ struct pico_gn_position
     
 };
 
-#define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
-/// The Location Table entry that are contained in the Location Table
-struct pico_gn_location_table_entry
-{
-    struct pico_gn_address *address; ///< The GeoNetworking address of the ITS-station
-    uint64_t                ll_address; ///< The 48 bit physical address of the ITS-station
-    uint8_t                 station_type; ///< The type of the ITS-station. This value should be either PICO_GN_LOCTE_STATION_TYPE_VEHICLE or PICO_GN_LOCTE_STATION_TYPE_ROADSIDE.
-    uint8_t                 proto_version; ///< The four bit protocol version executed by the ITS-station.
-    struct pico_gn_lpv     *position_vector; ///< The Long Position Vector of the ITS-station. The GeoNetworking address might not be set.
-    uint8_t                 location_service_pending; ///< Boolean indicating that a Location Service for this GeoNetworking address is in progress.
-    uint8_t                 is_neighbour; ///< Boolean indicating that the GeoAdhoc router is a direct neighbour.
-    uint16_t                sequence_number; ///< The last sequence number received from this GeoNetworking address that was identified as 'not duplicated'.
-    uint32_t                timestamp; ///< The timestamp of the last packet reveiced from this Geonetworking address that was identifed as 'not duplicated'.
-    uint16_t                packet_data_rate; ///< The Packet data rate as Exponential Moving Average.
-};
-
-#define PICO_SIZE_GNLINK ((uint32_t)sizeof(struct pico_gn_link))
-/// The link between the \struct pico_device and the \struct pico_gn_address
-struct pico_gn_link
-{
-    struct pico_device *dev; ///< The device which the address is coupled to.
-    struct pico_gn_address address; ///< The address which the device is coupled to.
-};
-
 #define PICO_SIZE_GNSPV ((uint32_t)sizeof(struct pico_gn_spv))
 /// The Short Position Vector containing the minimum position-related information.
 PACKED_STRUCT_DEF pico_gn_spv
@@ -162,6 +138,30 @@ PACKED_STRUCT_DEF pico_gn_lpv
     struct pico_gn_spv short_pv; ///< The Short Position Vector containing the GeoNetworking address, timestamp, latitude and longitude.
     uint16_t           sac; ///< The frist bit indicates the accuracy of the reference position. The last 15 bit indicata the speed expressed in 0.01 metre per second.
     uint16_t           heading; ///< Heading expressed in 0.1 degree from North.
+};
+
+#define PICO_SIZE_GNLOCTE ((uint32_t)sizeof(struct pico_gn_location_table_entry))
+/// The Location Table entry that are contained in the Location Table
+struct pico_gn_location_table_entry
+{
+    struct pico_gn_address *address; ///< The GeoNetworking address of the ITS-station
+    uint64_t                ll_address; ///< The 48 bit physical address of the ITS-station
+    uint8_t                 station_type; ///< The type of the ITS-station. This value should be either PICO_GN_LOCTE_STATION_TYPE_VEHICLE or PICO_GN_LOCTE_STATION_TYPE_ROADSIDE.
+    uint8_t                 proto_version; ///< The four bit protocol version executed by the ITS-station.
+    struct pico_gn_lpv      position_vector; ///< The Long Position Vector of the ITS-station. The GeoNetworking address might not be set.
+    uint8_t                 location_service_pending; ///< Boolean indicating that a Location Service for this GeoNetworking address is in progress.
+    uint8_t                 is_neighbour; ///< Boolean indicating that the GeoAdhoc router is a direct neighbour.
+    uint16_t                sequence_number; ///< The last sequence number received from this GeoNetworking address that was identified as 'not duplicated'.
+    uint32_t                timestamp; ///< The timestamp of the last packet reveiced from this Geonetworking address that was identifed as 'not duplicated'.
+    uint16_t                packet_data_rate; ///< The Packet data rate as Exponential Moving Average.
+};
+
+#define PICO_SIZE_GNLINK ((uint32_t)sizeof(struct pico_gn_link))
+/// The link between the \struct pico_device and the \struct pico_gn_address
+struct pico_gn_link
+{
+    struct pico_device *dev; ///< The device which the address is coupled to.
+    struct pico_gn_address address; ///< The address which the device is coupled to.
 };
 
 /// An union to be used when sending a GeoNetworking packet.
@@ -231,7 +231,7 @@ PACKED_STRUCT_DEF pico_gn_data_request
 {
     uint8_t                            upper_proto; ///< The protocol responsible for this request. This value can be either PICO_PROTO_BTP_A, PICO_PROTO_BTP_B or PICO_PROTO_GN6ASL.
     uint8_t                            type; // The GeoNetworking packet type. 
-    union pico_gn_destination         *destination; ///< The destination of this request.
+    struct pico_gn_address            *destination; ///< The destination of this request.
     enum pico_gn_communication_profile communication_profile; ///< Specifies the underlying logic link protocol to use. This can either be unspecified (Ethernet for this implementation) ITS-G5 (NOT SUPPORTED).
     struct pico_gn_traffic_class       traffic_class; ///< The traffic class for this request.
 };

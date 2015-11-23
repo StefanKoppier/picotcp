@@ -248,32 +248,69 @@ int pico_gn_process_out(struct pico_protocol *self, struct pico_frame *f)
 
 int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
 {
-    struct pico_gn_data_request *request = (struct pico_gn_data_request *)f->info;
+    /*struct pico_gn_data_request *request          = (struct pico_gn_data_request *)f->info;
+    struct pico_gn_address      *destination_addr = request->destination;
+    struct pico_gn_lpv          *destination_pv   = NULL;
+    struct pico_tree_node       *index            = NULL;
+    uint64_t                     next_hop_mid     = 0;
     IGNORE_PARAMETER(self);
     
-    if (!request /* || !f->sock this check should be added when a GeoNetworking comparible socket is available. */)
+    if (!request) // || !f->sock this check should be added when a GeoNetworking comparable socket is available. )
     {
         pico_err = PICO_ERR_EINVAL; // Correct error code?
         pico_frame_discard(f);
         return -1;
     }
     
+    // Check whether the entry of the position vector for DE in its LocT is valid.
+    pico_tree_foreach(index, &pico_gn_loct) {
+        struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
+        
+        if (pico_gn_address_equals(destination_addr, entry->address))
+        {
+            destination_pv = entry->position_vector;
+            break;
+        }
+    }
+    
+    // Check if an entry was found in the 
+    if (!destination_pv)
+    {
+        // TODO: Invoke the location service.
+        
+        // Discard the packet, as the protocol states.
+        pico_frame_discard(f);
+        return -1;
+    }
+    
+    //Determine the MID of the next hop
+    switch (PICO_GN_GUC_FORWARDING_ALGORITHM)
+    {
+    case PICO_GN_GUC_GREEDY_FORWARDING_ALGORITHM:
+            
+    case PICO_GN_GUC_CONTENTION_BASED_FORWARDING_ALGORITHM:
+        default:
+    }
+    
     // Basic Header and Common Header processing will probably be implemented here.
     
-    return pico_enqueue(&gn_out, f);
+    return pico_enqueue(&gn_out, f);*/
 }
 
 
 /* LOCATION TABLE FUNCTIONS */
 struct pico_gn_location_table_entry* pico_gn_loct_find(struct pico_gn_address *address)
 {
-    struct pico_tree_node *index;
-    
-    pico_tree_foreach(index, &pico_gn_loct) {
-        struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
-        
-        if (pico_gn_address_equals(address, entry->address))
-            return entry;
+    if (address)
+    {
+        struct pico_tree_node *index;
+
+        pico_tree_foreach(index, &pico_gn_loct) {
+            struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
+
+            if (pico_gn_address_equals(address, entry->address))
+                return entry;
+        }
     }
     
     return NULL;
@@ -289,7 +326,7 @@ int pico_gn_loct_update(struct pico_gn_address *address, struct pico_gn_lpv *vec
         return -1;
     }
     
-    memcpy(entry->position_vector, vector, PICO_SIZE_GNLPV);
+    entry->position_vector = *vector;
     entry->is_neighbour = is_neighbour;
     entry->ll_address = PICO_GET_GNADDR_MID(address->value);
     entry->location_service_pending = 0;
@@ -316,6 +353,7 @@ struct pico_gn_location_table_entry *pico_gn_loct_add(struct pico_gn_address *ad
                 return NULL;
             }
 
+            memset(entry, 0, sizeof(PICO_SIZE_GNLOCTE));
             entry->address = PICO_ZALLOC(PICO_SIZE_GNADDRESS);
 
             if (!entry->address)
@@ -325,7 +363,7 @@ struct pico_gn_location_table_entry *pico_gn_loct_add(struct pico_gn_address *ad
                 return NULL;
             }
 
-            memcpy(entry->address, address, PICO_SIZE_GNADDRESS);
+            *entry->address = *address;
 
             if (pico_tree_insert(&pico_gn_loct, entry) == &LEAF)
                 return NULL;
