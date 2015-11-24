@@ -72,7 +72,6 @@ CFLAGS+= -Wcast-align
 CFLAGS+= -Wmissing-prototypes
 CFLAGS+= -Wno-missing-field-initializers
 
-
 ifeq ($(DEBUG),1)
   CFLAGS+=-ggdb
 else
@@ -286,6 +285,7 @@ ifneq ($(POLARSSL),0)
 endif
 ifneq ($(GEONETWORKING),0)
   include rules/geonetworking.mk
+  CFLAGS+=-lm
 endif
 
 all: mod core lib
