@@ -3,6 +3,8 @@
 #include "pico_geonetworking_common.h"
 #include "pico_frame.h"
 #include "pico_geonetworking_management.h"
+#include "pico_protocol.h"
+#include "pico_eth.h"
 
 int pico_gn_guc_send(struct pico_gn_address *destination, uint8_t* payload, size_t length)
 {
