@@ -285,7 +285,6 @@ ifneq ($(POLARSSL),0)
 endif
 ifneq ($(GEONETWORKING),0)
   include rules/geonetworking.mk
-  CFLAGS+=-lm
 endif
 
 all: mod core lib
