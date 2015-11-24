@@ -1,7 +1,9 @@
 #include "modules/pico_geonetworking_common.c"
+#include "modunit_pico_geonetworking_shared.c"
 #include "check.h"
 #include "pico_geonetworking_common.h"
 #include "pico_device.h"
+#include "build/include/pico_frame.h"
 #include <inttypes.h>
 
 void pico_device_create(struct pico_device *dev, const char *name)
@@ -14,7 +16,6 @@ void pico_device_create(struct pico_device *dev, const char *name)
     memcpy(dev->name, name, len);
     dev->hash = pico_hash(dev->name, len);
 }
-
 
 int lpv_cmp(struct pico_gn_lpv *a, struct pico_gn_lpv *b)
 {
@@ -36,9 +37,22 @@ size_t pico_gn_loct_count(void)
     return count;
 }
 
+int pico_gn_dev_link_count(void)
+{
+    struct pico_tree_node *index;
+    int count = 0;
+    
+    pico_tree_foreach(index, &pico_gn_dev_link) {
+        count++;
+    }
+    
+    return count;
+}
+
 int pico_gn_dev_link_contains(struct pico_device *device)
 {
     struct pico_tree_node *index;
+    
     pico_tree_foreach(index, &pico_gn_dev_link) {
         struct pico_gn_link *link = (struct pico_gn_link*)index->keyValue;
 
@@ -49,17 +63,33 @@ int pico_gn_dev_link_contains(struct pico_device *device)
     return -1;
 }
 
+void pico_gn_dev_link_clear(void)
+{
+    struct pico_tree_node *index, *_tmp;
+    struct pico_gn_dev_link *entry;
+    pico_tree_foreach_safe(index, &pico_gn_dev_link, _tmp) {
+        entry = (struct pico_gn_dev_link*)index->keyValue;
+        
+        pico_tree_delete(&pico_gn_dev_link, entry);
+        PICO_FREE(entry);
+    }
+}
+
 void pico_gn_loct_clear(void)
 {
-    struct pico_tree_node *index;
-    pico_tree_foreach_reverse(index, &pico_gn_loct) {
-        pico_tree_delete(&pico_gn_loct, index);
+    struct pico_tree_node *index, *_tmp;
+    struct pico_gn_location_table_entry *entry;
+    pico_tree_foreach_safe(index, &pico_gn_loct, _tmp) {
+        entry = (struct pico_gn_location_table_entry*)index->keyValue;
+        
+        pico_tree_delete(&pico_gn_loct, entry);
+        PICO_FREE(entry);
     }
 }
 
 uint64_t pico_gn_mgmt_if_get_time(void)
 {
-    
+    return 1448292875136ull;
 }
 
 struct pico_gn_local_position_vector pico_gn_mgmt_get_position_if(void)
@@ -168,7 +198,22 @@ END_TEST
 
 START_TEST(tc_pico_gn_get_time)
 {
-    
+    pico_gn_mgmt_interface.get_time = NULL;
+    { // Management interface not set, result of the get function should be -1.
+        uint64_t *time = PICO_ZALLOC(sizeof(uint64_t));
+        pico_gn_mgmt_interface.get_time = NULL;
+        int result = pico_gn_get_current_time(time);
+        
+        fail_if(result != -1, "Error: pico_gn_get_current_time with pico_gn_mgmt_interface.get_current_time == NULL should return -1.");
+    }
+    { // Management interface set, result should be 0.
+        uint64_t *time = PICO_ZALLOC(sizeof(uint64_t));
+        pico_gn_mgmt_interface.get_time = pico_gn_mgmt_if_get_time;
+        int result = pico_gn_get_current_time(time);
+        
+        fail_if(result != 0, "Error: pico_gn_get_current_time with pico_gn_mgmt_interface.get_current_time set should return 0.");
+        fail_if(*time == 0, "Error: pico_gn_get_current_time does not results in a time.");
+    }
 }
 END_TEST
 
@@ -183,6 +228,8 @@ START_TEST(tc_pico_gn_get_position)
         .timestamp = 0,
     };
     
+    pico_gn_mgmt_interface.get_position = NULL;
+    
     // Management interface not set, result of the get function should be -1.
     int result = pico_gn_get_position(&lpv);
     fail_if(result != -1, "Error: pico_gn_get_position with pico_gn_mgmt_interface.get_position == NULL should return -1.");
@@ -190,7 +237,7 @@ START_TEST(tc_pico_gn_get_position)
     pico_gn_mgmt_interface.get_position = pico_gn_mgmt_get_position_if;
     
     result = pico_gn_get_position(&lpv);
-    fail_if(result != 0, "Error: pico_gn_get_position with pico_gn_mgmt_interface.get_position != NULL should return 0.");
+    fail_if(result != 0, "Error: pico_gn_get_position with pico_gn_mgmt_interface.get_position set should return 0.");
     fail_if(lpv.accuracy != 1 || 
             lpv.heading != 0 || 
             lpv.latitude != 5000 || 
@@ -283,29 +330,38 @@ END_TEST
 
 START_TEST(tc_pico_gn_link_add)
 {
-    struct pico_device *dev = PICO_ZALLOC(sizeof(struct pico_device));
-    pico_device_create(dev, "mock0");
-    
     { // Test for AUTO
+        struct pico_device *dev = PICO_ZALLOC(sizeof(struct pico_device));
+        pico_device_create(dev, "mock0");
         int result = pico_gn_link_add(dev, AUTO, 123, 123);
-        
+      
         fail_if(result != 0, "Error: managed address configuration is not implemented, this should not result in an error code.");
         fail_if(pico_gn_dev_link_contains(dev) != 0, "Error: device not added to the tree.");
+        
+        pico_gn_dev_link_clear();
+        fail_if(pico_gn_dev_link_count() != 0, "Error: unit test function pico_gn_dev_link_clear isn't functioning.");
+        PICO_FREE(dev);
     }
-    /*{ // Test for MANAGED
+    { // Test for MANAGED
+        struct pico_device *dev = PICO_ZALLOC(sizeof(struct pico_device));
+        pico_device_create(dev, "mock1");
         int result = pico_gn_link_add(dev, MANAGED, 123, 123);
         
         fail_if(result != -1, "Error: managed address configuration is not implemented, this should result in an error code.");
         fail_if(pico_gn_dev_link_contains(dev) == 0, "Error: device added to the tree, this should not happen.");
+        
+        pico_gn_dev_link_clear();
     }
     { // Test for ANONYMOUS
+        struct pico_device *dev = PICO_ZALLOC(sizeof(struct pico_device));
+        pico_device_create(dev, "mock2");
         int result = pico_gn_link_add(dev, ANONYMOUS, 123, 123);
         
         fail_if(result != -1, "Error: anonymous address configuration is not implemented, this should result in an error code.");
         fail_if(pico_gn_dev_link_contains(dev) == 0, "Error: device added to the tree, this should not happen.");
-    }*/
-    
-    PICO_FREE(dev);
+        
+        pico_gn_dev_link_clear();
+    }
 }
 END_TEST
 
@@ -349,6 +405,78 @@ START_TEST(tc_pico_gn_address)
 }
 END_TEST
 
+START_TEST(tc_pico_gn_fetch_frame_source_address)
+{
+    { // GeoUnicast frame
+        struct pico_gn_lpv source = {
+            .heading = 0,
+            .sac = 0,
+            .short_pv = {
+                .latitude = 51436460,
+                .longitude = 5469895,
+                .timestamp = 1104922570ul,
+                .address = 0,
+            },
+        };
+        
+        PICO_SET_GNADDR_MID(source.short_pv.address.value, 0x15615FEull);
+        PICO_SET_GNADDR_COUNTRY_CODE(source.short_pv.address.value, 12);
+        PICO_SET_GNADDR_MANUAL(source.short_pv.address.value, 1);
+        PICO_SET_GNADDR_STATION_TYPE(source.short_pv.address.value, (uint8_t)PEDESTRIAN);
+        
+        struct pico_gn_spv destination = {
+            .address = 0,
+            .latitude = 51436586,
+            .longitude = 5469750,
+            .timestamp = 1104922570ul,
+        };
+            
+        
+        struct pico_frame *f = pico_gn_create_guc_packet(source, destination);
+        struct pico_gn_address *address = pico_gn_fetch_frame_source_address(f);
+        
+        fail_if(address->value != source.short_pv.address.value, "Error: incorrect address returned.");
+     }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_fetch_frame_sequence_number)
+{
+    { // GeoUnicast frame
+        struct pico_gn_lpv source = {
+            .heading = 0,
+            .sac = 0,
+            .short_pv = {
+                .latitude = 51436460,
+                .longitude = 5469895,
+                .timestamp = 1104922570ul,
+                .address = 0,
+            },
+        };
+        
+        PICO_SET_GNADDR_MID(source.short_pv.address.value, 0x15615FEull);
+        PICO_SET_GNADDR_COUNTRY_CODE(source.short_pv.address.value, 12);
+        PICO_SET_GNADDR_MANUAL(source.short_pv.address.value, 1);
+        PICO_SET_GNADDR_STATION_TYPE(source.short_pv.address.value, (uint8_t)PEDESTRIAN);
+        
+        struct pico_gn_spv destination = {
+            .address = 0,
+            .latitude = 51436586,
+            .longitude = 5469750,
+            .timestamp = 1104922570ul,
+        };
+            
+        struct pico_frame *f = pico_gn_create_guc_packet(source, destination);
+        struct pico_gn_address *address = pico_gn_fetch_frame_source_address(f);
+        struct pico_gn_guc_header *header = (struct pico_gn_guc_header*)(f->net_hdr + PICO_SIZE_GNHDR);
+        uint16_t sequence_number = 123654;
+        header->sequence_number = sequence_number;
+        
+        fail_if(pico_gn_fetch_frame_sequence_number(f) != sequence_number, "Error: incorrect sequence_number returned.");
+     }
+}
+END_TEST
+
 Suite *pico_suite(void)
 {
     Suite *s = suite_create("GeoNetworking common module");
@@ -366,7 +494,7 @@ Suite *pico_suite(void)
     tcase_add_test(TCase_pico_gn_loct_update, tc_pico_gn_loct_update);
     suite_add_tcase(s, TCase_pico_gn_loct_update);
     
-    TCase *TCase_pico_gn_link_add = tcase_create("Unit test for adding a link between a device and a GeoNetworking address.");
+    TCase *TCase_pico_gn_link_add = tcase_create("Unit test for pico_gn_loct_add");
     tcase_add_test(TCase_pico_gn_link_add, tc_pico_gn_link_add);
     suite_add_tcase(s, TCase_pico_gn_link_add);
     
@@ -382,14 +510,25 @@ Suite *pico_suite(void)
     tcase_add_test(TCase_pico_gn_get_position, tc_pico_gn_get_position);
     suite_add_tcase(s, TCase_pico_gn_get_position);
         
+    TCase *TCase_pico_gn_fetch_frame_source_address = tcase_create("Unit test for pico_gn_fetch_frame_source_address.");
+    tcase_add_test(TCase_pico_gn_fetch_frame_source_address, tc_pico_gn_fetch_frame_source_address);
+    suite_add_tcase(s, TCase_pico_gn_fetch_frame_source_address);
+    
+    TCase *TCase_pico_gn_fetch_frame_sequence_number = tcase_create("Unit test for pico_gn_fetch_frame_sequence_number.");
+    tcase_add_test(TCase_pico_gn_fetch_frame_sequence_number, tc_pico_gn_fetch_frame_sequence_number);
+    suite_add_tcase(s, TCase_pico_gn_fetch_frame_sequence_number);
+    
     return s;
 }
+
+#define CK_FORK "no"
 
 int main(void)
 {
     int fails;
     Suite *s = pico_suite();
     SRunner *sr = srunner_create(s);
+    srunner_set_fork_status(sr, CK_NOFORK);
     srunner_run_all(sr, CK_NORMAL);
     fails = srunner_ntests_failed(sr);
     srunner_free(sr);    

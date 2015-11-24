@@ -3,11 +3,16 @@
 #include "pico_geonetworking_common.h"
 #include "pico_frame.h"
 #include "pico_geonetworking_management.h"
+#include "pico_protocol.h"
+#include "pico_eth.h"
 
 int pico_gn_guc_send(struct pico_gn_address *destination, uint8_t* payload, size_t length)
 {
+    //next_alloc_header_type = &guc_header_type;
+    //struct pico_frame *f = pico_proto_geonetworking.alloc(&pico_proto_geonetworking, length);
+    
     // TODO: IMPLEMENT FUNCTION
-    return -1;
+    //return -1;
 }
 
 const struct pico_gn_header_info guc_header_type = {
@@ -175,7 +180,7 @@ int pico_gn_process_guc_out(struct pico_frame *f)
 
 struct pico_frame *pico_gn_guc_alloc(uint16_t size)
 {
-    struct pico_frame *f = PICO_ZALLOC(PICO_SIZE_ETHHDR + PICO_SIZE_GNHDR + PICO_SIZE_GUCHDR + size);
+    struct pico_frame *f = pico_frame_alloc(PICO_SIZE_ETHHDR + PICO_SIZE_GNHDR + PICO_SIZE_GUCHDR + size);
     
     if (!f)
         pico_err = PICO_ERR_ENOMEM;

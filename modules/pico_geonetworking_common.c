@@ -70,7 +70,7 @@ inline void pico_gn_print_header(struct pico_gn_header* h)
 int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method method, uint8_t station_type, uint16_t country_code)
 {
     struct pico_gn_link *link = PICO_ZALLOC(PICO_SIZE_GNLINK);
-    int error;
+    int addr_create_result;
     
     if (!link)
     {
@@ -84,27 +84,23 @@ int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method m
     switch (method)
     {
     case AUTO: 
-        error = pico_gn_create_address_auto(&link->address, station_type, country_code);
+        addr_create_result = pico_gn_create_address_auto(&link->address, station_type, country_code);
         break;
     case MANAGED:
-        error = pico_gn_create_address_managed(&link->address);
+        addr_create_result = pico_gn_create_address_managed(&link->address);
         break;
     case ANONYMOUS:
-        error = pico_gn_create_address_anonymous(&link->address);
+        addr_create_result = pico_gn_create_address_anonymous(&link->address);
         break;
     default:
-        error = -1;
+        addr_create_result = -1;
         break;
     }
     
-    if (error == -1)
-    {
-        /// TODO: set error code to something.
-        return -1;
-    }
+    if (!addr_create_result)
+        pico_tree_insert(&pico_gn_dev_link, link);
     
-    pico_tree_insert(&pico_gn_dev_link, link);
-    return 0;
+    return addr_create_result;
 }
 
 uint64_t i = 0x123;
@@ -143,15 +139,17 @@ struct pico_frame *pico_gn_alloc(struct pico_protocol *self, uint16_t size)
     {
         f = next_alloc_header_type->alloc(size);
 
-        // If there was enough memory, set the headers and their lengths
+        // If there was enough memory, set the headers positions and their lengths.
         if (f)
         {
+            uint16_t size_gn = PICO_SIZE_GNHDR + next_alloc_header_type->size;
+            
             f->datalink_hdr  = f->buffer;
             f->net_hdr       = f->buffer + PICO_SIZE_ETHHDR; // This should be changed to the size of the underlying LLC protocol. Currently only Ethernet is supported, so this is sufficient for now.
-            f->net_len       = (uint16_t)(PICO_SIZE_GNHDR + next_alloc_header_type->size);
-            f->transport_hdr = f->net_hdr + f->net_len;
+            f->net_len       = size_gn;
+            f->transport_hdr = f->net_hdr + size_gn;
             f->transport_len = size;
-            f->len           = size + (PICO_SIZE_GNHDR + next_alloc_header_type->size);
+            f->len           = size + size_gn;
         }
     }
     else
