@@ -54,17 +54,6 @@ PICO_TREE_DECLARE(pico_gn_dev_link, pico_gn_link_compare);
 
 PICO_TREE_DECLARE(pico_gn_loct, pico_gn_locte_compare);
 
-/* DEBUG PRINT FUNCTIONS */
-inline void pico_gn_print_header(struct pico_gn_header* h)
-{
-    dbg("%d %d %d %d %d\n", 
-            PICO_GET_GNBASICHDR_VERSION(h->basic_header.vnh), 
-            PICO_GET_GNBASICHDR_NEXT_HEADER(h->basic_header.vnh),
-            h->basic_header.reserved, 
-            h->basic_header.lifetime, 
-            h->basic_header.remaining_hop_limit);
-}
-
 /* LOCAL ADDRESS AND DEVICE LINK FUCNTIONS */
 
 int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method method, uint8_t station_type, uint16_t country_code)
@@ -179,8 +168,6 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
     f->transport_hdr = f->net_hdr + PICO_SIZE_GNHDR + extended_length;
     f->transport_len = (uint16_t)(f->buffer_len - h->common_header.payload_length - PICO_SIZE_GNHDR - (uint16_t)extended_length);
     f->net_len = (uint16_t)(PICO_SIZE_GNHDR + (uint16_t)extended_length);
-    
-    pico_gn_print_header(h); // rename print header
     
     // BASIC HEADER PROCESSING
     // Check if the GeoNetworking version of the received packet is compatible.
