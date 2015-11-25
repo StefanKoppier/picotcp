@@ -537,29 +537,34 @@ int pico_gn_address_equals(struct pico_gn_address *a, struct pico_gn_address *b)
 
 const struct pico_gn_header_info *pico_gn_get_header_info(struct pico_gn_header *header)
 {
-    // Lookup table with all the specific header information (processing functions and specific field offsets).
-    // The invalid fields are not implemented yet or are actually invalid.
-    static const struct pico_gn_header_info *lookup[PICO_GN_HEADER_COUNT][PICO_GN_SUBHEADER_COUNT] = 
+    if (header)
     {
-        /* ANY,      INVALID,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
-        /* BEACON,   INVALID,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
-        /* GUC,      INVALID,  INVALID  */ {&guc_header_type,     &header_info_invalid, &header_info_invalid},
-        /* GAC-circ, GAC-rect, GAC-elip */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
-        /* GBC-circ, GBC-rect, GBC-elip */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
-        /* TSB-SHB,  TSB-MHP,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
-        /* LS-REQ,   LS-RESP,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},   
-    };
-    
-    uint8_t header_index    = PICO_GET_GNCOMMONHDR_HEADER(header->common_header.header);
-    uint8_t subheader_index = PICO_GET_GNCOMMONHDR_SUBHEADER(header->common_header.header);
+        // Lookup table with all the specific header information (processing functions and specific field offsets).
+        // The invalid fields are not implemented yet or are actually invalid.
+        static const struct pico_gn_header_info *lookup[PICO_GN_HEADER_COUNT][PICO_GN_SUBHEADER_COUNT] = 
+        {
+            /* ANY,      INVALID,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
+            /* BEACON,   INVALID,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
+            /* GUC,      INVALID,  INVALID  */ {&guc_header_type,     &header_info_invalid, &header_info_invalid},
+            /* GAC-circ, GAC-rect, GAC-elip */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
+            /* GBC-circ, GBC-rect, GBC-elip */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
+            /* TSB-SHB,  TSB-MHP,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},
+            /* LS-REQ,   LS-RESP,  INVALID  */ {&header_info_invalid, &header_info_invalid, &header_info_invalid},   
+        };
 
-    if (header_index >= PICO_GN_HEADER_COUNT || subheader_index >= PICO_GN_SUBHEADER_COUNT)
-        return &header_info_invalid;    
-    else
-        return lookup[header_index][subheader_index];
+        uint8_t header_index    = PICO_GET_GNCOMMONHDR_HEADER(header->common_header.header);
+        uint8_t subheader_index = PICO_GET_GNCOMMONHDR_SUBHEADER(header->common_header.header);
+
+        if (header_index >= PICO_GN_HEADER_COUNT || subheader_index >= PICO_GN_SUBHEADER_COUNT)
+            return &header_info_invalid;    
+        else
+            return lookup[header_index][subheader_index];
+    }
+    
+    return &header_info_invalid; 
 }
 
-uint16_t pico_gn_get_sequence_number(void)
+uint16_t pico_gn_get_next_sequence_number(void)
 {
     static uint16_t sequence_number = 0;
     

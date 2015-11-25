@@ -116,7 +116,7 @@ START_TEST(tc_pico_gn_loct_find)
         fail_if(pico_gn_loct_find(NULL) != NULL, "Error: finding NULL in the LocT should return NULL.");
     }
     { // Test for finding a valid entry.
-        struct pico_gn_address address = {0};
+        struct pico_gn_address address = (struct pico_gn_address){0};
         struct pico_gn_location_table_entry *entry = NULL;
         PICO_SET_GNADDR_MID(address.value, 0x12365478);
         
@@ -132,8 +132,8 @@ START_TEST(tc_pico_gn_loct_find)
         fail_if(entry->address->value != address.value, "Error: found the wrong item.");
     }
     { // Test for finding an invalid entry.
-        struct pico_gn_address address1 = {0};
-        struct pico_gn_address address2 = {0};
+        struct pico_gn_address address1 = (struct pico_gn_address){0};
+        struct pico_gn_address address2 = (struct pico_gn_address){0};
         struct pico_gn_location_table_entry *entry = NULL;
         PICO_SET_GNADDR_MID(address1.value, 0x12365478);
         PICO_SET_GNADDR_MID(address2.value, 0x32156478);
@@ -148,7 +148,6 @@ START_TEST(tc_pico_gn_loct_find)
         
         fail_if(entry, "Error: found an address that is not in the LocT.");
     }
-    
 }
 END_TEST
 
@@ -431,7 +430,6 @@ START_TEST(tc_pico_gn_fetch_frame_source_address)
             .timestamp = 1104922570ul,
         };
             
-        
         struct pico_frame *f = pico_gn_create_guc_packet(source, destination);
         struct pico_gn_address *address = pico_gn_fetch_frame_source_address(f);
         
@@ -477,6 +475,189 @@ START_TEST(tc_pico_gn_fetch_frame_sequence_number)
 }
 END_TEST
 
+START_TEST(tc_pico_gn_fetch_frame_timestamp)
+{
+    { // GeoUnicast frame test
+        uint32_t timestamp = 1104922570ul;
+        struct pico_gn_lpv source = {
+            .heading = 0,
+            .sac = 0,
+            .short_pv = {
+                .latitude = 51436460,
+                .longitude = 5469895,
+                .timestamp = timestamp,
+                .address = 0,
+            },
+        };
+        
+        struct pico_gn_spv destination = {
+            .address = 0,
+            .latitude = 51436586,
+            .longitude = 5469750,
+            .timestamp = 0,
+        };
+            
+        struct pico_frame *f = pico_gn_create_guc_packet(source, destination);
+        
+        fail_if(pico_gn_fetch_frame_timestamp(f) != timestamp, "Error: incorrect timestamp returned.");
+     }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_fetch_loct_timestamp)
+{
+    pico_gn_loct_clear();
+    
+    struct pico_gn_location_table_entry *entry1 = NULL;
+    struct pico_gn_address address1 = (struct pico_gn_address){0};
+    uint32_t timestamp1 = 1448292875136ul;
+    PICO_SET_GNADDR_MID(address1.value, 0x123654987ull);
+    PICO_SET_GNADDR_COUNTRY_CODE(address1.value, 12);
+    entry1 = pico_gn_loct_add(&address1);
+    entry1->timestamp = timestamp1;
+    
+    struct pico_gn_location_table_entry *entry2 = NULL;
+    struct pico_gn_address address2 = (struct pico_gn_address){0};
+    uint32_t timestamp2 = 1448292875951ul;
+    PICO_SET_GNADDR_MID(address2.value, 0x12365297ull);
+    PICO_SET_GNADDR_COUNTRY_CODE(address2.value, 4);
+    entry2 = pico_gn_loct_add(&address2);
+    entry2->timestamp = timestamp2;
+    
+    { // Test with NULL, this should result in -1
+        fail_if(pico_gn_fetch_loct_timestamp(NULL) != -1, "Error: finding the LocTE timestamp of NULL should result in -1.");
+    }
+    { // Test entry1, this should result in 1448292875136ul
+        fail_if(pico_gn_fetch_loct_timestamp(&address1) != timestamp1, "Error: finding the LocTE timestamp of address1 should result in 1448292875136.");
+    }
+    { // Test entry2, this should result in 1448292875951ul
+        fail_if(pico_gn_fetch_loct_timestamp(&address2) != timestamp2, "Error: finding the LocTE timestamp of address1 should result in 1448292875951.");
+    }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_fetch_loct_sequence_number)
+{
+    pico_gn_loct_clear();
+    
+    struct pico_gn_location_table_entry *entry1 = NULL;
+    struct pico_gn_address address1 = (struct pico_gn_address){0};
+    uint32_t sequence_number1 = 152;
+    PICO_SET_GNADDR_MID(address1.value, 0x123654987ull);
+    PICO_SET_GNADDR_COUNTRY_CODE(address1.value, 12);
+    entry1 = pico_gn_loct_add(&address1);
+    entry1->sequence_number = sequence_number1;
+    
+    struct pico_gn_location_table_entry *entry2 = NULL;
+    struct pico_gn_address address2 = (struct pico_gn_address){0};
+    uint32_t sequence_number2 = 15;
+    PICO_SET_GNADDR_MID(address2.value, 0x12365297ull);
+    PICO_SET_GNADDR_COUNTRY_CODE(address2.value, 4);
+    entry2 = pico_gn_loct_add(&address2);
+    entry2->sequence_number = sequence_number2;
+    
+    { // Test with NULL, this should result in -1
+        fail_if(pico_gn_fetch_loct_sequence_number(NULL) != -1, "Error: finding the LocTE sequence_number of NULL should result in -1.");
+    }
+    { // Test entry1, this should result in 152
+        fail_if(pico_gn_fetch_loct_sequence_number(&address1) != sequence_number1, "Error: finding the LocTE sequence_number of address1 should result in 152.");
+    }
+    { // Test entry2, this should result in 15
+        fail_if(pico_gn_fetch_loct_sequence_number(&address2) != sequence_number2, "Error: finding the LocTE sequence_number of address1 should result in 15.");
+    }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_get_sequence_number)
+{
+    uint32_t i;
+    for (i = 1; i <= UINT16_MAX + 1; ++i)
+    {
+        uint16_t sn = pico_gn_get_next_sequence_number();
+        
+        if (i == 1)
+            fail_if(sn != 1, "Error: the first sequence number should be 1.");
+        else if (i == 2)
+            fail_if(sn != 2, "Error: the second sequence number should be 2.");
+        if(i == (UINT16_MAX + 1))
+            fail_if(sn != 1, "Error: the sequence number overflow does not return to 1.");
+    }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_find_extended_header_length)
+{
+    int64_t result = -1;
+    
+    { // Test for NULL, should return -1
+        result = pico_gn_find_extended_header_length(NULL);
+        
+        fail_if(result != -1, "Error: getting the extended header length of NULL should result in -1.");
+    }
+    { // Test for an invalid header and subheader type, should return -1
+        struct pico_gn_header header = (struct pico_gn_header){0};
+        PICO_SET_GNCOMMONHDR_HEADER(header.common_header.header, 3);
+        PICO_SET_GNCOMMONHDR_SUBHEADER(header.common_header.header, 3);
+
+        result = pico_gn_find_extended_header_length(&header);
+        
+        fail_if(result != -1, "Error: getting the extended header length of an invalid extended header should result in -1.");
+    }
+    { // Test for GeoUnicast, should return 48.
+        struct pico_gn_header header = (struct pico_gn_header){0};
+        PICO_SET_GNCOMMONHDR_HEADER(header.common_header.header, guc_header_type.header);
+        PICO_SET_GNCOMMONHDR_SUBHEADER(header.common_header.header, guc_header_type.subheader);
+
+        result = pico_gn_find_extended_header_length(&header);
+
+        fail_if(result != 48, "Error: the size of the GeoUnicast header should be 48.");
+    }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_get_header_info)
+{
+    struct pico_gn_header_info *result = NULL;
+    
+    { // Test with a NULL header, this should result in header_info_invalid
+        result = pico_gn_get_header_info(NULL);
+        
+        fail_if(result != &header_info_invalid, "Error: getting the header info of NULL results in an header type that is not header_info_invalid.");
+    }
+    { // Test with a invalid header and subheader, should result in header_info_invalid
+        struct pico_gn_header header = (struct pico_gn_header){0};
+        PICO_SET_GNCOMMONHDR_HEADER(header.common_header.header, 3);
+        PICO_SET_GNCOMMONHDR_SUBHEADER(header.common_header.header, 3);
+
+        result = pico_gn_get_header_info(&header);
+            
+        fail_if(result != &header_info_invalid, "Error: getting the header info of header with an invalid header and subheader does not result in the header type for invalid.");
+    }
+    { // Test for a GeoUnicast
+        { // Test with a valid subheader, should result in guc_header_type
+            struct pico_gn_header header = (struct pico_gn_header){0};
+            PICO_SET_GNCOMMONHDR_HEADER(header.common_header.header, guc_header_type.header);
+            PICO_SET_GNCOMMONHDR_SUBHEADER(header.common_header.header, guc_header_type.subheader);
+            
+            result = pico_gn_get_header_info(&header);
+            
+            fail_if(result != &guc_header_type, "Error: getting the header info of a GeoUnicast header type does not result in the header type for GeoUnicast.");
+        }
+    }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_detect_duplicate_sntst_packet)
+{
+    { // Test if a duplicate sequence number gets detected, this should result in -1
+        // Set the LocTE item to a sequence number of 5 and a timestamp of 1448292875951.
+        uint16_t sequence_number = 5;
+        uint32_t timestamp = 1448292875951ul;
+        
+    }
+}
+END_TEST
+
 Suite *pico_suite(void)
 {
     Suite *s = suite_create("GeoNetworking common module");
@@ -517,6 +698,34 @@ Suite *pico_suite(void)
     TCase *TCase_pico_gn_fetch_frame_sequence_number = tcase_create("Unit test for pico_gn_fetch_frame_sequence_number.");
     tcase_add_test(TCase_pico_gn_fetch_frame_sequence_number, tc_pico_gn_fetch_frame_sequence_number);
     suite_add_tcase(s, TCase_pico_gn_fetch_frame_sequence_number);
+    
+    TCase *TCase_pico_gn_fetch_frame_timestamp = tcase_create("Unit test for pico_gn_fetch_frame_timestamp.");
+    tcase_add_test(TCase_pico_gn_fetch_frame_timestamp, tc_pico_gn_fetch_frame_timestamp);
+    suite_add_tcase(s, TCase_pico_gn_fetch_frame_timestamp);
+    
+    TCase *TCase_pico_gn_fetch_loct_timestamp = tcase_create("Unit test for pico_gn_fetch_loct_timestamp.");
+    tcase_add_test(TCase_pico_gn_fetch_loct_timestamp, tc_pico_gn_fetch_loct_timestamp);
+    suite_add_tcase(s, TCase_pico_gn_fetch_loct_timestamp);
+    
+    TCase *TCase_pico_gn_fetch_loct_sequence_number = tcase_create("Unit test for pico_gn_fetch_loct_sequence_number.");
+    tcase_add_test(TCase_pico_gn_fetch_loct_sequence_number, tc_pico_gn_fetch_loct_sequence_number);
+    suite_add_tcase(s, TCase_pico_gn_fetch_loct_sequence_number);
+    
+    TCase *TCase_pico_gn_get_sequence_number = tcase_create("Unit test for pico_gn_get_sequence_number.");
+    tcase_add_test(TCase_pico_gn_get_sequence_number, tc_pico_gn_get_sequence_number);
+    suite_add_tcase(s, TCase_pico_gn_get_sequence_number);
+    
+    TCase *TCase_pico_gn_find_extended_header_length = tcase_create("Unit test for pico_gn_find_extended_header_length.");
+    tcase_add_test(TCase_pico_gn_find_extended_header_length, tc_pico_gn_find_extended_header_length);
+    suite_add_tcase(s, TCase_pico_gn_find_extended_header_length);
+    
+    TCase *TCase_pico_gn_get_header_info = tcase_create("Unit test for pico_gn_get_header_info.");
+    tcase_add_test(TCase_pico_gn_get_header_info, tc_pico_gn_get_header_info);
+    suite_add_tcase(s, TCase_pico_gn_get_header_info);
+    
+    TCase *TCase_pico_gn_detect_duplicate_sntst_packet = tcase_create("Unit test for pico_gn_detect_duplicate_sntst_packet.");
+    tcase_add_test(TCase_pico_gn_detect_duplicate_sntst_packet, tc_pico_gn_detect_duplicate_sntst_packet);
+    suite_add_tcase(s, TCase_pico_gn_detect_duplicate_sntst_packet);
     
     return s;
 }
