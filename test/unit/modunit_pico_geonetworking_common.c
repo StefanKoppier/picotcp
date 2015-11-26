@@ -658,6 +658,73 @@ START_TEST(tc_pico_gn_detect_duplicate_sntst_packet)
 }
 END_TEST
 
+START_TEST(tc_pico_gn_abs)
+{
+    fail_if(pico_gn_abs(-1) != 1, "Error: the absolute value of -1 should be 1.");
+    fail_if(pico_gn_abs(1) != 1, "Error: the absolute value of 1 should be 1.");
+}
+END_TEST
+
+START_TEST(tc_pico_gn_sqroot)
+{
+    double result = 0;
+    uint8_t is_valid = 1;
+    { // Testing square root of 4, should result in 2.
+        result = pico_gn_sqroot(4.0);
+        is_valid = (result < 2.01 && result > 1.99);
+        
+        fail_if(!is_valid, "Error: square root of 2 should be 2.");
+    }
+    { // Testing the square root of 2.6, should result in 1.61245155
+        result = pico_gn_sqroot(2.6);
+        is_valid = (result < 1.6125 && result > 1.6120);
+        
+        fail_if(!is_valid, "Error: square root of 2.6 should be 1.61245");
+    }
+    { // Testing the square root of -5, should result in 0.
+        result = pico_gn_sqroot(-5.0);
+        is_valid = (result == 0);
+        
+        fail_if(!is_valid, "Error: square root of a negative number should be 0.");
+    }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_calculate_distance)
+{
+    { // Scenario one, the expected value, 794 is calculated using a working tool.
+        const int32_t expected = 794;
+        
+        int32_t lat_a = 51444761, lat_b = 51444761;
+        int32_t long_a = 5448177, long_b = 5447383;
+        
+        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
+        
+        fail_if(result != expected, "Error: value is not the same as the expected value.");
+    }
+    { // Scenario two meters, the expected value, 29(.8), is calculated using a working tool.
+        const int32_t expected = 29;
+        
+        int32_t lat_a = 51443867, lat_b = 51443860;
+        int32_t long_a = 5447726, long_b = 5447697;
+        
+        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
+        
+        fail_if(result != expected, "Error: value is not the same as the expected value.");
+    }
+    { // Scenario three, the expected value, 199(.9), is calculated using a working tool.
+        const int32_t expected = 199;
+        
+        int32_t lat_a = 51443867, lat_b = 51443998;
+        int32_t long_a = 5447726, long_b = 5447575;
+        
+        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
+                
+        fail_if(result != expected, "Error: value is not the same as the expected value.");
+    }
+}
+END_TEST
+
 Suite *pico_suite(void)
 {
     Suite *s = suite_create("GeoNetworking common module");
@@ -726,6 +793,18 @@ Suite *pico_suite(void)
     TCase *TCase_pico_gn_detect_duplicate_sntst_packet = tcase_create("Unit test for pico_gn_detect_duplicate_sntst_packet.");
     tcase_add_test(TCase_pico_gn_detect_duplicate_sntst_packet, tc_pico_gn_detect_duplicate_sntst_packet);
     suite_add_tcase(s, TCase_pico_gn_detect_duplicate_sntst_packet);
+    
+    TCase *TCase_pico_gn_calculate_distance = tcase_create("Unit test for pico_gn_calculate_distance.");
+    tcase_add_test(TCase_pico_gn_calculate_distance, tc_pico_gn_sqroot);
+    suite_add_tcase(s, TCase_pico_gn_calculate_distance);
+    
+    TCase *TCase_pico_gn_sqroot = tcase_create("Unit test for pico_gn_sqroot.");
+    tcase_add_test(TCase_pico_gn_sqroot, tc_pico_gn_calculate_distance);
+    suite_add_tcase(s, TCase_pico_gn_sqroot);
+    
+    TCase *TCase_pico_gn_abs = tcase_create("Unit test for pico_gn_abs.");
+    tcase_add_test(TCase_pico_gn_abs, tc_pico_gn_abs);
+    suite_add_tcase(s, TCase_pico_gn_abs);
     
     return s;
 }

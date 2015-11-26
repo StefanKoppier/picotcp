@@ -9,8 +9,6 @@
 #include "pico_addressing.h"
 #include "pico_tree.h"
 
-#include <math.h>
-
 #define PICO_GN_HEADER_COUNT    7 // Maximum number of extended headers defined. Used for the creation of lookup tables.
 #define PICO_GN_SUBHEADER_COUNT 3 // Maximum number of extended sub-headers defined. Used for the creation of lookup tables.
 
@@ -604,10 +602,40 @@ int pico_gn_get_position(struct pico_gn_local_position_vector *result)
     }
 }
 
-#define TO_RAD (3.1415926536 / 180)
-double pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b)
+#define MINDIFF 2.25e-308
+double pico_gn_sqroot(double value)
 {
-    static const double r = 6371;
+    double root = value / 3, last, diff = 1;
+    
+    if (value <= 0) 
+        return 0;
+    
+    do 
+    {
+        last = root;
+        root = (root + value / root) / 2;
+        diff = root - last;
+    } while (diff > MINDIFF || diff < -MINDIFF);
+    
+    return root;
+}
+
+double pico_gn_abs(double value)
+{
+    if (value < 0)
+        return -value;
+    else 
+        return value;
+}
+
+int32_t pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b)
+{
+    int64_t lat = pico_gn_abs(lat_a - lat_b);
+    int64_t lon = pico_gn_abs(long_a - long_b);
+    int64_t delta = (lat * lat) + (lon * lon);
+    
+    return (int32_t)pico_gn_sqroot(delta);
+    /*static const double r = 6371;
     double th1 = (double)lat_a / 10000;
     double ph1 = (double)long_a / 10000;
     
@@ -622,5 +650,5 @@ double pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, 
     dx = cos(ph1) * cos(th1) - cos(th2);
     dy = sin(ph1) * cos(th1);
     
-    return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * r;
+    return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * r;*/
 }

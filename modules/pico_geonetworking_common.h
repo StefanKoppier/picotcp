@@ -390,12 +390,22 @@ int pico_gn_get_current_time(uint32_t *result);
 ///  \result 0 on success, -1 on failure.
 int pico_gn_get_position(struct pico_gn_local_position_vector *result);
 
-/// Calculates the distance between two points using the haversine formula.
+/// Calculates the square root of a value.
+///  \param value The value to calculate the square root from.
+///  \returns The square root of the argument.
+double pico_gn_sqroot(double value);
+
+/// Calculates the absolute value of a value.
+///  \param value The value to calculate the absolute value from.
+///  \returns the absolute value of the argument.
+double pico_gn_abs(double value);
+
+/// Calculates the euclidian distance between two points.
 ///  \param lat_a The latitude of point a.
 ///  \param long_a The longitude of point a.
 ///  \param lat_b The latitude of point b.
 ///  \param long_b The longitude of point b.
-///  \returns The distance between a and b in kilometers.
-double pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b);
+///  \returns The distance between a and b in decimeter.
+int32_t pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */
