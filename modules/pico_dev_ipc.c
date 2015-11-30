@@ -18,7 +18,7 @@ struct pico_device_ipc {
     int fd;
 };
 
-#define IPC_MTU 1500
+#define IPC_MTU 2048
 
 static int pico_ipc_send(struct pico_device *dev, void *buf, int len)
 {
@@ -57,7 +57,7 @@ void pico_ipc_destroy(struct pico_device *dev)
     }
 }
 
-static int ipc_connect(char *sock_path)
+static int ipc_connect(const char *sock_path)
 {
     struct sockaddr_un addr;
     int ipc_fd;
@@ -69,6 +69,7 @@ static int ipc_connect(char *sock_path)
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, sock_path, sizeof(addr.sun_path)-1);
+    addr.sun_path[sizeof(addr.sun_path)-1] = '\0';
 
     if(connect(ipc_fd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) < 0) {
         return(-1);
@@ -77,12 +78,14 @@ static int ipc_connect(char *sock_path)
     return ipc_fd;
 }
 
-struct pico_device *pico_ipc_create(char *sock_path, char *name, uint8_t *mac)
+struct pico_device *pico_ipc_create(const char *sock_path, const char *name, const uint8_t *mac)
 {
     struct pico_device_ipc *ipc = PICO_ZALLOC(sizeof(struct pico_device_ipc));
 
     if (!ipc)
         return NULL;
+
+    ipc->dev.mtu = IPC_MTU;
 
     if( 0 != pico_device_init((struct pico_device *)ipc, name, mac)) {
         dbg("Ipc init failed.\n");
