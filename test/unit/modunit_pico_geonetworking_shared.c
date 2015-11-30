@@ -37,3 +37,13 @@ struct pico_frame *pico_gn_create_guc_packet(struct pico_gn_lpv source, struct p
     
     return frame;
 }
+
+struct pico_frame *pico_gn_create_guc_packet_sn(struct pico_gn_lpv source, struct pico_gn_spv destination, uint16_t sequence_number)
+{
+    struct pico_frame *frame = pico_gn_create_guc_packet(source, destination);
+    struct pico_gn_guc_header *extended = (struct pico_gn_guc_header*)(frame->net_hdr + PICO_SIZE_GNHDR);
+    
+    extended->sequence_number = sequence_number;
+    
+    return frame;
+}

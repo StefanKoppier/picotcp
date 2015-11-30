@@ -364,6 +364,40 @@ START_TEST(tc_pico_gn_link_add)
 }
 END_TEST
 
+START_TEST(tc_pico_gn_link_compare)
+{
+    { // Test with an address with a MID field that is smaller than the other, this should result in -1
+        struct pico_gn_link a = (struct pico_gn_link){0};
+        struct pico_gn_link b = (struct pico_gn_link){0};
+        
+        PICO_SET_GNADDR_MID(a.address.value, 0x222222222222ull);
+        PICO_SET_GNADDR_MID(b.address.value, 0x111111111111ull);
+        
+        fail_if(pico_gn_link_compare(&a, &b) != -1, "Error: a > b should result in -1.");
+    }
+    { // Test with an address with a MID field that is bigger than the other, this should result in 1.
+        struct pico_gn_link a = (struct pico_gn_link){0};
+        struct pico_gn_link b = (struct pico_gn_link){0};
+        
+        PICO_SET_GNADDR_MID(a.address.value, 0x111111111111ull);
+        PICO_SET_GNADDR_MID(b.address.value, 0x222222222222ull);
+        
+        fail_if(pico_gn_link_compare(&a, &b) != 1, "Error: a < b should result in 1.");
+        
+    }
+    { // Test with two addresses that have the same MID field, this should result in 0.
+        struct pico_gn_link a = (struct pico_gn_link){0};
+        struct pico_gn_link b = (struct pico_gn_link){0};
+        
+        PICO_SET_GNADDR_MID(a.address.value, 0x111111111111ull);
+        PICO_SET_GNADDR_MID(b.address.value, 0x111111111111ull);
+        
+        fail_if(pico_gn_link_compare(&a, &b) != 0, "Error: a == b should result in 0.");
+        
+    }
+}
+END_TEST
+
 START_TEST(tc_pico_gn_address)
 {
     { // Test GET functions from buffers assignment.
@@ -649,11 +683,211 @@ END_TEST
 
 START_TEST(tc_pico_gn_detect_duplicate_sntst_packet)
 {
-    { // Test if a duplicate sequence number gets detected, this should result in -1
-        // Set the LocTE item to a sequence number of 5 and a timestamp of 1448292875951.
-        uint16_t sequence_number = 5;
-        uint32_t timestamp = 1448292875951ul;
+    struct pico_gn_address source_addr = (struct pico_gn_address){0};
+    struct pico_gn_spv destination = (struct pico_gn_spv){0};
+    PICO_SET_GNADDR_MID(source_addr.value, 0x111111111111ull);
+    
+    const uint8_t duplicate = 1;
+    const uint8_t not_duplicate = 0;
+    
+    pico_gn_loct_clear();
+
+    { // Test the scenario where there is no entry in the LocT, this should result in 0 (this must be the newest).
+        struct pico_gn_lpv source = {
+            .sac = 0,
+            .heading = 0,
+            .short_pv.latitude = 0,
+            .short_pv.longitude = 0,
+            .short_pv.address = source_addr,
+            .short_pv.timestamp = 1104922570ul,
+        };
         
+        uint16_t sequence_number = 15;
+        struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, sequence_number);
+        
+        fail_if(pico_gn_detect_duplicate_sntst_packet(f) != not_duplicate, "Error: a packet received with no LocTE of this source must be the newest.");
+    }
+    { // Tests the scenarios where the timestamp is more recent in the one in the LocT.
+        { // Test with a newer sequence number, this should result in 0.
+            // Nice to have: implement scenario. This is not really necessary because the protocol 
+            // doesn't look at the sequence number if the timestamp is newer.
+        }
+        { // Test with the same sequence number as the last, this should result in 0.
+            struct pico_gn_lpv source = {
+                .sac = 0,
+                .heading = 0,
+                .short_pv.latitude = 0,
+                .short_pv.longitude = 0,
+                .short_pv.address = source_addr,
+                .short_pv.timestamp = 1104922580ul,
+            };
+
+            struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, 3);
+
+            // Set up location table
+            struct pico_gn_location_table_entry *entry = pico_gn_loct_add(&source_addr);
+            entry->timestamp = 1104922570ul;
+            entry->sequence_number = 2;
+            
+            fail_if(pico_gn_detect_duplicate_sntst_packet(f) != not_duplicate, "Error: a packet received with a more recent timestamp and a higher sequence number is newer than the entry thus should result in 0.");
+            pico_gn_loct_clear();
+        }
+        { // Test with an older sequence number as the last, this should result in 0.
+            // Nice to have: implement scenario. This is not really necessary because the protocol 
+            // doesn't look at the sequence number if the timestamp is newer.
+        }
+    }
+    { // Test the scenarios where the timestamp is equal to the one in the LocT.
+        { // Test with a newer sequence number, this should result in 0.
+            struct pico_gn_lpv source = {
+                .sac = 0,
+                .heading = 0,
+                .short_pv.latitude = 0,
+                .short_pv.longitude = 0,
+                .short_pv.address = source_addr,
+                .short_pv.timestamp = 1104922570ul,
+            };
+
+            struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, 3);
+
+            // Set up location table
+            struct pico_gn_location_table_entry *entry = pico_gn_loct_add(&source_addr);
+            entry->timestamp = 1104922570ul;
+            entry->sequence_number = 2;
+            
+            fail_if(pico_gn_detect_duplicate_sntst_packet(f) != not_duplicate, "Error: a packet received with a timestamp equal to the LocTE but the higher sequence number is newer than the entry thus should result in 0.");
+        }
+        { // Test with a sequence number equal to the last, this should result in 1.
+            struct pico_gn_lpv source = {
+                .sac = 0,
+                .heading = 0,
+                .short_pv.latitude = 0,
+                .short_pv.longitude = 0,
+                .short_pv.address = source_addr,
+                .short_pv.timestamp = 1104922570ul,
+            };
+
+            struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, 3);
+
+            // Set up location table
+            struct pico_gn_location_table_entry *entry = pico_gn_loct_add(&source_addr);
+            entry->timestamp = 1104922570ul;
+            entry->sequence_number = 3;
+            
+            fail_if(pico_gn_detect_duplicate_sntst_packet(f) != duplicate, "Error: a packet received with the timestamp and sequence number equal to the LocTE.");
+        }
+        { // Test with a sequence number lower than the last, this should result in 1.
+            struct pico_gn_lpv source = {
+                .sac = 0,
+                .heading = 0,
+                .short_pv.latitude = 0,
+                .short_pv.longitude = 0,
+                .short_pv.address = source_addr,
+                .short_pv.timestamp = 1104922570ul,
+            };
+
+            struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, 2);
+
+            // Set up location table
+            struct pico_gn_location_table_entry *entry = pico_gn_loct_add(&source_addr);
+            entry->timestamp = 1104922570ul;
+            entry->sequence_number = 3;
+            
+            fail_if(pico_gn_detect_duplicate_sntst_packet(f) != duplicate, "Error: a packet received with a timestamp equal to the LocTE but the higher sequence number is newer than the entry thus should result in 1.");
+        }
+    }
+    { // Test the scenarios where that timestamp is older than the one in the LocT.
+        { // Test with a newer sequence number, this should result in 1.
+            struct pico_gn_lpv source = {
+                .sac = 0,
+                .heading = 0,
+                .short_pv.latitude = 0,
+                .short_pv.longitude = 0,
+                .short_pv.address = source_addr,
+                .short_pv.timestamp = 1104922570ul,
+            };
+
+            struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, 2);
+
+            // Set up location table
+            struct pico_gn_location_table_entry *entry = pico_gn_loct_add(&source_addr);
+            entry->timestamp = 1104922580ul;
+            entry->sequence_number = 3;
+            
+            fail_if(pico_gn_detect_duplicate_sntst_packet(f) != duplicate, "Error: a packet received with a timestamp older than the one in the LocTE but a higher sequence number is newer than the entry which should result in 1.");
+        }
+        { // Test with a sequence number equal to the last, this should result in 1.
+            struct pico_gn_lpv source = {
+                .sac = 0,
+                .heading = 0,
+                .short_pv.latitude = 0,
+                .short_pv.longitude = 0,
+                .short_pv.address = source_addr,
+                .short_pv.timestamp = 1104922570ul,
+            };
+
+            struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, 2);
+
+            // Set up location table
+            struct pico_gn_location_table_entry *entry = pico_gn_loct_add(&source_addr);
+            entry->timestamp = 1104922580ul;
+            entry->sequence_number = 2;
+            
+            fail_if(pico_gn_detect_duplicate_sntst_packet(f) != duplicate, "Error: a packet received with a timestamp older than the one in the LocTE but the higher sequence number is newer than the entry thus should result in 1.");
+
+        }
+        { // Test with a sequence number lower than the last, this should result in 1.
+            struct pico_gn_lpv source = {
+                .sac = 0,
+                .heading = 0,
+                .short_pv.latitude = 0,
+                .short_pv.longitude = 0,
+                .short_pv.address = source_addr,
+                .short_pv.timestamp = 1104922570ul,
+            };
+
+            struct pico_frame *f = pico_gn_create_guc_packet_sn(source, destination, 3);
+
+            // Set up location table
+            struct pico_gn_location_table_entry *entry = pico_gn_loct_add(&source_addr);
+            entry->timestamp = 1104922580ul;
+            entry->sequence_number = 2;
+            
+            fail_if(pico_gn_detect_duplicate_sntst_packet(f) != duplicate, "Error: a packet received with a timestamp older than the one in the LocTE and a sequence number that is equal.");
+        }
+    }
+}
+END_TEST
+
+START_TEST(tc_pico_gn_alloc)
+{
+    { // GeoUnicast
+        next_alloc_header_type = &guc_header_type;
+        
+        { // GeoUnicast with payload
+            uint16_t payload_length = 0;
+            uint16_t gn_size = PICO_SIZE_GNHDR + guc_header_type.size;
+            struct pico_frame *frame = pico_gn_alloc(&pico_proto_geonetworking, payload_length);
+            
+            fail_if(frame->datalink_hdr != frame->buffer, "Error: the datalink header does not start at the start of the buffer.");
+            fail_if(frame->net_hdr != (frame->buffer + PICO_SIZE_ETHHDR), "Error: the network layer header does not start at the correct position.");
+            fail_if(frame->net_len != (gn_size), "Error: the network layer length is incorrect.");
+            fail_if(frame->transport_hdr != (frame->net_hdr + gn_size), "Error: the transport layer header does not start at the start position.");
+            fail_if(frame->transport_len != payload_length, "Error: the transport layer length is incorrect.");
+            fail_if(frame->len != (payload_length + gn_size), "Error: length is incorrect.");
+        }
+        { // GeoUnicast without payload
+            uint16_t payload_length = 50;
+            uint16_t gn_size = PICO_SIZE_GNHDR + guc_header_type.size;
+            struct pico_frame *frame = pico_gn_alloc(&pico_proto_geonetworking, payload_length);
+            
+            fail_if(frame->datalink_hdr != frame->buffer, "Error: the datalink header does not start at the start of the buffer.");
+            fail_if(frame->net_hdr != (frame->buffer + PICO_SIZE_ETHHDR), "Error: the network layer header does not start at the correct position.");
+            fail_if(frame->net_len != (gn_size), "Error: the network layer length is incorrect.");
+            fail_if(frame->transport_hdr != (frame->net_hdr + gn_size), "Error: the transport layer header does not start at the start position.");
+            fail_if(frame->transport_len != payload_length, "Error: the transport layer length is incorrect.");
+            fail_if(frame->len != (payload_length + gn_size), "Error: length is incorrect.");
+        }
     }
 }
 END_TEST
@@ -742,9 +976,13 @@ Suite *pico_suite(void)
     tcase_add_test(TCase_pico_gn_loct_update, tc_pico_gn_loct_update);
     suite_add_tcase(s, TCase_pico_gn_loct_update);
     
-    TCase *TCase_pico_gn_link_add = tcase_create("Unit test for pico_gn_loct_add");
+    TCase *TCase_pico_gn_link_add = tcase_create("Unit test for tc_pico_gn_link_add");
     tcase_add_test(TCase_pico_gn_link_add, tc_pico_gn_link_add);
     suite_add_tcase(s, TCase_pico_gn_link_add);
+    
+    TCase *TCase_pico_gn_link_compare = tcase_create("Unit test for pico_gn_link_compare");
+    tcase_add_test(TCase_pico_gn_link_compare, tc_pico_gn_link_compare);
+    suite_add_tcase(s, TCase_pico_gn_link_compare);
     
     TCase *TCase_pico_gn_address = tcase_create("Unit test for GeoNetworking address");
     tcase_add_test(TCase_pico_gn_address, tc_pico_gn_address);
@@ -798,6 +1036,10 @@ Suite *pico_suite(void)
     tcase_add_test(TCase_pico_gn_calculate_distance, tc_pico_gn_sqroot);
     suite_add_tcase(s, TCase_pico_gn_calculate_distance);
     
+    TCase *TCase_pico_gn_alloc = tcase_create("Unit test for pico_gn_alloc.");
+    tcase_add_test(TCase_pico_gn_alloc, tc_pico_gn_alloc);
+    suite_add_tcase(s, TCase_pico_gn_alloc);
+        
     TCase *TCase_pico_gn_sqroot = tcase_create("Unit test for pico_gn_sqroot.");
     tcase_add_test(TCase_pico_gn_sqroot, tc_pico_gn_calculate_distance);
     suite_add_tcase(s, TCase_pico_gn_sqroot);

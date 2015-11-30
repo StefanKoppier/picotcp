@@ -502,15 +502,13 @@ int pico_gn_link_compare(void *a, void *b)
     struct pico_gn_link *link_a = (struct pico_gn_link*)a;
     struct pico_gn_link *link_b = (struct pico_gn_link*)b;
     
-    // If the following code is correct.
-    // it is the same as in the pico_gn_locte_compare function. Replace these two with a single function.
-    if (pico_gn_address_equals(&link_a->address, &link_b->address))
-        return 0;
-    
-    if (link_a->address.value < link_b->address.value)
-        return -1;
-    else if (link_a->address.value > link_b->address.value)
+    uint64_t mid_a = PICO_GET_GNADDR_MID(link_a->address.value);
+    uint64_t mid_b = PICO_GET_GNADDR_MID(link_b->address.value);
+            
+    if (mid_a < mid_b)
         return 1;
+    else if (mid_a > mid_b)
+        return -1;
     else 
         return 0;
 }
