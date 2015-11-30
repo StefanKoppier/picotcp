@@ -3,7 +3,7 @@
 #include "check.h"
 #include "pico_geonetworking_common.h"
 #include "pico_device.h"
-#include "build/include/pico_frame.h"
+#include "pico_frame.h"
 #include <inttypes.h>
 
 void pico_device_create(struct pico_device *dev, const char *name)
