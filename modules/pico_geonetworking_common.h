@@ -19,23 +19,6 @@
 #define PICO_GN_LOCTE_STATION_TYPE_VEHICLE  0
 #define PICO_GN_LOCTE_STATION_TYPE_ROADSIDE 1
 
-/// Enum containing the different types of ITS-stations.
-enum pico_gn_station_type
-{
-    UNKNOWN         = 0,
-    PEDESTRIAN      = 1,
-    CYCLIST         = 2,
-    MOPED           = 3,
-    MOTORCYCLE      = 4,
-    PASSENGER_CAR   = 5,
-    BUS             = 6,
-    LIGHT_TRUCK     = 7,
-    HEAVY_TRUCK     = 8,
-    TRAILER         = 9,
-    SPECIAL_VEHICLE = 10,
-    TRAM            = 11,
-    ROADSIDE_UNIT   = 15,
-};
 
 /// Enum containing the possible next values in the \struct pico_gn_basic_header next header field.
 enum pico_gn_basic_header_next_header
@@ -57,6 +40,13 @@ extern struct pico_protocol pico_proto_geonetworking;
 extern struct pico_tree     pico_gn_loct;
 extern struct pico_tree     pico_gn_dev_link;
 
+/// The logic link protocol to use beneath the GeoNetworking protocol.
+/*enum pico_gn_communication_profile
+{
+    UNSPECIFIED = 0, ///< Unspecified protocol. This implemention of GeoNetworking assumes Ethernet.
+    ITSG5       = 1, ///< ITS-G5. NOT SUPPORTED.
+};*/
+
 /// The method used to configure the GeoAdhoc router's GeoNetworking address.
 enum pico_gn_address_conf_method
 {
@@ -65,11 +55,63 @@ enum pico_gn_address_conf_method
     ANONYMOUS = 2, ///< Anonymous address configuration. Request an address from the security entity. \bug This feature is not supported.
 };
 
-/// The logic link protocol to use beneath the GeoNetworking protocol.
-enum pico_gn_communication_profile
+enum pico_gn_guc_forwarding_algorithm
 {
-    UNSPECIFIED = 0, ///< Unspecified protocol. This implemention of GeoNetworking assumes Ethernet.
-    ITSG5       = 1, ///< ITS-G5. NOT SUPPORTED.
+    GREEDY = 1,
+};
+
+enum pico_gn_gbc_forwarding_algorithm
+{
+    ADVANCED = 3,
+};
+
+
+#define PICO_GET_GNTRAFFIC_CLASS_SCF(x) ((x->value >> 7) & 0x01)
+#define PICO_GET_GNTRAFFIC_CLASS_CHANNEL_OFFLOAD(x) ((x->value >> 6) & 0x01)
+#define PICO_GET_GNTRAFFIC_CLASS_ID(x) (x->value & 0x3F)
+#define PICO_SIZE_GNTRAFFIC_CLASS (sizeof(struct pico_gn_traffic_class)))
+/// The traffic class used for traffic classification which is used for particular mechanisms for data traffic management.
+PACKED_STRUCT_DEF pico_gn_traffic_class
+{
+    uint8_t value; ///< The first bit identify the SCF-field. The next bit identify channel offload field. The last six bits identify the ID of the traffic class.
+};
+
+extern const struct pico_gn_traffic_class pico_gn_traffic_class_default;
+
+/// Enum containing the different types of ITS-stations.
+enum pico_gn_station_type
+{
+    UNKNOWN         = 0,
+    PEDESTRIAN      = 1,
+    CYCLIST         = 2,
+    MOPED           = 3,
+    MOTORCYCLE      = 4,
+    PASSENGER_CAR   = 5,
+    BUS             = 6,
+    LIGHT_TRUCK     = 7,
+    HEAVY_TRUCK     = 8,
+    TRAILER         = 9,
+    SPECIAL_VEHICLE = 10,
+    TRAM            = 11,
+    ROADSIDE_UNIT   = 15,
+};
+
+enum pico_gn_interface_type
+{
+    UNSPECIFIED = 0,
+    ITSG5 = 1,
+};
+
+enum pico_gn_security
+{
+    DISABLED = 0,
+    ENABLED = 1,
+};
+
+enum pico_gn_sn_decap_result_handling
+{
+    STRICT = 0,
+    NONSTRICT = 1,
 };
 
 /// Struct containing information about a specfic extended header.
@@ -92,6 +134,7 @@ struct pico_gn_header_info
 };
 
 extern const struct pico_gn_header_info header_info_invalid;
+extern volatile struct pico_gn_header_info *next_alloc_header_type;
 
 #define PICO_GET_GNADDR_MANUAL(x) ((uint8_t)((x >> 7) & 0x01))
 #define PICO_GET_GNADDR_STATION_TYPE(x) ((uint8_t)((x >> 2) & 0x1F))
@@ -185,18 +228,6 @@ PACKED_STRUCT_DEF pico_gn_basic_header
     uint8_t remaining_hop_limit; ///< Decrembented by 1 by each GeoAdhoc router that forwards the packet. The packet shall not be forwarded if RHL is decremented to zero.
 };
 
-#define PICO_GET_GNTRAFFIC_CLASS_SCF(x) ((x->value >> 7) & 0x01)
-#define PICO_GET_GNTRAFFIC_CLASS_CHANNEL_OFFLOAD(x) ((x->value >> 6) & 0x01)
-#define PICO_GET_GNTRAFFIC_CLASS_ID(x) (x->value & 0x3F)
-#define PICO_SIZE_GNTRAFFIC_CLASS (sizeof(struct pico_gn_traffic_class)))
-/// The traffic class used for traffic classification which is used for particular mechanisms for data traffic management.
-PACKED_STRUCT_DEF pico_gn_traffic_class
-{
-    uint8_t value; ///< The first bit identify the SCF-field. The next bit identify channel offload field. The last six bits identify the ID of the traffic class.
-};
-
-extern const struct pico_gn_traffic_class pico_gn_traffic_class_default;
-
 #define PICO_GET_GNCOMMONHDR_NEXT_HEADER(x) ((enum pico_gn_common_header_next_header)((x & 0xF0) >> 4))
 #define PICO_GET_GNCOMMONHDR_HEADER(x) ((x & 0xF0) >> 4)
 #define PICO_GET_GNCOMMONHDR_SUBHEADER(x) (x & 0x0F)
@@ -229,11 +260,14 @@ PACKED_STRUCT_DEF pico_gn_header
 /// The GN-DATA.request primitive which contains information about the request for sending a GeoNetworking packet.
 PACKED_STRUCT_DEF pico_gn_data_request
 {
-    uint8_t                            upper_proto; ///< The protocol responsible for this request. This value can be either PICO_PROTO_BTP_A, PICO_PROTO_BTP_B or PICO_PROTO_GN6ASL.
-    uint8_t                            type; // The GeoNetworking packet type. 
-    struct pico_gn_address            *destination; ///< The destination of this request.
-    enum pico_gn_communication_profile communication_profile; ///< Specifies the underlying logic link protocol to use. This can either be unspecified (Ethernet for this implementation) ITS-G5 (NOT SUPPORTED).
-    struct pico_gn_traffic_class       traffic_class; ///< The traffic class for this request.
+    enum pico_gn_common_header_next_header upper_proto; ///< The protocol responsible for this request.
+    struct pico_gn_header_info             type; // The GeoNetworking packet type. 
+    struct pico_gn_address                *destination; ///< The destination of this request.
+    enum pico_gn_interface_type            communication_profile; ///< Specifies the underlying logic link protocol to use. This can either be unspecified (Ethernet for this implementation) ITS-G5 (NOT SUPPORTED).
+    struct pico_gn_traffic_class           traffic_class; ///< The traffic class for this request.
+    uint8_t                                lifetime; ///< The remaining lifetime of this request.
+    uint8_t                                hop_limit; ///< The remaining hop limit of this request.
+    uint8_t                                maximum_hop_limit; ///< The maximum hop limit of this request.
 };
 
 /// Function for adding this \struct pico_device to the GeoAdhoc router.

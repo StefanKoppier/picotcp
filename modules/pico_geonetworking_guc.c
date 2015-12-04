@@ -6,13 +6,11 @@
 #include "pico_protocol.h"
 #include "pico_eth.h"
 
-int pico_gn_guc_send(struct pico_gn_address *destination, uint8_t* payload, size_t length)
+int pico_gn_guc_send(struct pico_gn_address *destination)
 {
-    //next_alloc_header_type = &guc_header_type;
-    //struct pico_frame *f = pico_proto_geonetworking.alloc(&pico_proto_geonetworking, length);
-    
-    // TODO: IMPLEMENT FUNCTION
-    //return -1;
+    next_alloc_header_type = &guc_header_type;
+    struct pico_frame *f = pico_proto_geonetworking.alloc(&pico_proto_geonetworking, 0);
+    return pico_proto_geonetworking.push(&pico_proto_geonetworking, f);
 }
 
 const struct pico_gn_header_info guc_header_type = {

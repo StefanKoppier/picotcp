@@ -231,11 +231,13 @@ int pico_gn_process_out(struct pico_protocol *self, struct pico_frame *f)
 
 int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
 {
-    /*struct pico_gn_data_request *request          = (struct pico_gn_data_request *)f->info;
-    struct pico_gn_address      *destination_addr = request->destination;
-    struct pico_gn_lpv          *destination_pv   = NULL;
-    struct pico_tree_node       *index            = NULL;
-    uint64_t                     next_hop_mid     = 0;
+    struct pico_gn_data_request *request      = (struct pico_gn_data_request *)f->info;
+    struct pico_gn_header       *header       = (struct pico_gn_header*)f->net_hdr;
+    struct pico_gn_address      *dest_addr    = request->destination;
+    struct pico_gn_lpv          *dest_pos     = NULL;
+    uint64_t                     dest_mid     = 0ull;
+    struct pico_tree_node       *index        = NULL;
+    uint64_t                     next_hop_mid = 0ull;
     IGNORE_PARAMETER(self);
     
     if (!request) // || !f->sock this check should be added when a GeoNetworking comparable socket is available. )
@@ -245,19 +247,38 @@ int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
         return -1;
     }
     
+    // Set the fields of the Basic Header
+    header->basic_header.vnh = 0;
+    /*⬑*/ PICO_SET_GNBASICHDR_VERSION(header->basic_header.vnh, PICO_GN_PROTOCOL_VERSION);
+    /*⬑*/ PICO_SET_GNBASICHDR_NEXT_HEADER(header->basic_header.vnh, COMMON);
+    header->basic_header.reserved = 0;
+    header->basic_header.lifetime = request->lifetime;
+    header->basic_header.remaining_hop_limit = request->hop_limit;
+    
+    // Set the fields of the Common Header
+    header->common_header.next_header = 0;
+    PICO_SET_GNCOMMONHDR_NEXT_HEADER(header->common_header.next_header, request->upper_proto); // TODO: this should be set to CM_ANY if request->type is BEACON.
+    PICO_SET_GNCOMMONHDR_HEADER(header->common_header.header, request->type.header);
+    PICO_SET_GNCOMMONHDR_SUBHEADER(header->common_header.header, request->type.subheader);
+    header->common_header.traffic_class = request->traffic_class; 
+    header->common_header.flags = (*((uint8_t*)pico_gn_settings_get(IS_MOBILE))) ? 1 << 8 : 0;
+    header->common_header.payload_length = f->payload_len; // TODO: set to 0 for BEACON and Location Service packets
+    header->common_header.maximum_hop_limit = request->maximum_hop_limit; // TODO: set to 1 for SHB, set to default constant for Location Service packets.
+    header->common_header.reserved_2 = 0;
+    
     // Check whether the entry of the position vector for DE in its LocT is valid.
     pico_tree_foreach(index, &pico_gn_loct) {
         struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
         
-        if (pico_gn_address_equals(destination_addr, entry->address))
+        if (pico_gn_address_equals(dest_addr, entry->address))
         {
-            destination_pv = entry->position_vector;
+            dest_pos = &entry->position_vector;
             break;
         }
     }
     
     // Check if an entry was found in the 
-    if (!destination_pv)
+    if (!dest_pos)
     {
         // TODO: Invoke the location service.
         
@@ -270,16 +291,30 @@ int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
     switch (PICO_GN_GUC_FORWARDING_ALGORITHM)
     {
     case PICO_GN_GUC_GREEDY_FORWARDING_ALGORITHM:
-            
+        next_hop_mid = pico_gn_guc_greedy_forwarding(&dest_pos->short_pv, &request->traffic_class);
     case PICO_GN_GUC_CONTENTION_BASED_FORWARDING_ALGORITHM:
-        default:
+    default:
+        pico_frame_discard(f);
+        return -1;
+            break;
     }
     
-    // Basic Header and Common Header processing will probably be implemented here.
+    if (next_hop_mid == 0)
+    {
+        // TODO: add the frame to the UC forwarding buffer
+        // Also remove the frame_discard, because the frame must be stored in the buffer, not be deleted.
+        // For now keep the discard, because the UC forwarding buffer is not implemented.
+        pico_frame_discard(f);
+        return 0;
+    }
+    /*else if (next_hop_mid == -1) 
+    {
+        pico_frame_discard(f);
+        return 0;
+    }*/
     
-    return pico_enqueue(&gn_out, f);*/
+    return pico_enqueue(&gn_out, f);
 }
-
 
 /* LOCATION TABLE FUNCTIONS */
 struct pico_gn_location_table_entry* pico_gn_loct_find(struct pico_gn_address *address)
