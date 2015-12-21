@@ -90,9 +90,9 @@ int pico_gn_link_add(struct pico_device *dev, enum pico_gn_address_conf_method m
     return addr_create_result;
 }
 
-uint64_t i = 0x123;
 int pico_gn_create_address_auto(struct pico_gn_address* result, uint8_t station_type, uint16_t country_code)
 {
+    static uint64_t i = 0x123;
     PICO_SET_GNADDR_MANUAL(result->value, 0); // Should be 1?
     PICO_SET_GNADDR_STATION_TYPE(result->value, station_type);
     PICO_SET_GNADDR_COUNTRY_CODE(result->value, country_code);
@@ -668,5 +668,15 @@ int32_t pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b,
     
     double d = pico_gn_sqrt(x * x + y * y) * earth_radius;
     
-    return d * 1000;
+    return ((int32_t)(d * 1000));
+}
+
+int pico_gn_is_broadcast(const uint8_t address[6])
+{
+    uint8_t i;
+    for (i = 0; i < 6; ++i) 
+        if (address[i] != 0xFF)
+            return 0;
+    
+    return 1;
 }

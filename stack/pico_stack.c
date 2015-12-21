@@ -331,6 +331,15 @@ static int destination_is_bcast(struct pico_frame *f)
 
     if (IS_IPV6(f))
         return 0;
+    
+#ifdef PICO_SUPPORT_GEONETWORKING
+    else if (IS_GN(f))
+    {
+        struct pico_eth_hdr* eth_hdr = (struct pico_eth_hdr*)f->datalink_hdr;
+        
+        return pico_gn_is_broadcast(eth_hdr->daddr);
+    }
+#endif
 
 #ifdef PICO_SUPPORT_IPV4
     else {
@@ -611,6 +620,22 @@ int32_t MOCKABLE pico_ethernet_send(struct pico_frame *f)
 
         dstmac_valid = 1;
         proto = PICO_IDETH_IPV6;
+    }
+    else
+#endif
+        
+#ifdef PICO_SUPPORT_GEONETWORKING
+    if (IS_GN(f)) {
+        struct pico_eth_hdr* eth_hdr = (struct pico_eth_hdr*)f->datalink_hdr;
+        
+        // For now, every address is valid.
+        // TODO: check if this is true, or a false assumption.
+        //if  (pico_gn_is_broadcast(eth_hdr->daddr))
+        //{
+            memcpy(&dstmac, PICO_ETHADDR_ALL, PICO_SIZE_ETH);
+            dstmac_valid = 1;
+            proto = PICO_IDETH_GN;
+        //}
     }
     else
 #endif

@@ -461,4 +461,9 @@ double pico_gn_cos(double value);
 ///  \returns The distance between a and b in meters.
 int32_t pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b);
 
+/// Checks if a MAC address is a broadcast address, which means: does the address equal 0xFFFFFFFFFFFF
+///  \param address The MAC address to check.
+///  \returns 1 when the address is a broadcast address, 0 if not.
+int pico_gn_is_broadcast(const uint8_t address[8]);
+
 #endif	/* INCLUDE_PICO_GEONETWORKING */
