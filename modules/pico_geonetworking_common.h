@@ -57,14 +57,18 @@ enum pico_gn_address_conf_method
 
 enum pico_gn_guc_forwarding_algorithm
 {
-    GREEDY = 1,
+    UC_UNSPECIFIED = 0,
+    UC_GREEDY      = 1,
+    UC_CBF         = 2,
 };
 
 enum pico_gn_gbc_forwarding_algorithm
 {
-    ADVANCED = 3,
+    BC_UNSPECIFIED = 0,
+    BC_SIMPLE      = 1,
+    BC_CBF         = 2,
+    BC_ADVANCED    = 3,
 };
-
 
 #define PICO_GET_GNTRAFFIC_CLASS_SCF(x) ((x->value >> 7) & 0x01)
 #define PICO_GET_GNTRAFFIC_CLASS_CHANNEL_OFFLOAD(x) ((x->value >> 6) & 0x01)
@@ -134,7 +138,7 @@ struct pico_gn_header_info
 };
 
 extern const struct pico_gn_header_info header_info_invalid;
-extern volatile struct pico_gn_header_info *next_alloc_header_type;
+extern struct pico_gn_header_info *next_alloc_header_type;
 
 #define PICO_GET_GNADDR_MANUAL(x) ((uint8_t)((x >> 7) & 0x01))
 #define PICO_GET_GNADDR_STATION_TYPE(x) ((uint8_t)((x >> 2) & 0x1F))
@@ -266,7 +270,6 @@ PACKED_STRUCT_DEF pico_gn_data_request
     enum pico_gn_interface_type            communication_profile; ///< Specifies the underlying logic link protocol to use. This can either be unspecified (Ethernet for this implementation) ITS-G5 (NOT SUPPORTED).
     struct pico_gn_traffic_class           traffic_class; ///< The traffic class for this request.
     uint8_t                                lifetime; ///< The remaining lifetime of this request.
-    uint8_t                                hop_limit; ///< The remaining hop limit of this request.
     uint8_t                                maximum_hop_limit; ///< The maximum hop limit of this request.
 };
 
@@ -427,19 +430,35 @@ int pico_gn_get_position(struct pico_gn_local_position_vector *result);
 /// Calculates the square root of a value.
 ///  \param value The value to calculate the square root from.
 ///  \returns The square root of the argument.
-double pico_gn_sqroot(double value);
+double pico_gn_sqrt(double value);
 
 /// Calculates the absolute value of a value.
 ///  \param value The value to calculate the absolute value from.
-///  \returns the absolute value of the argument.
+///  \returns The absolute value of the argument.
 double pico_gn_abs(double value);
 
-/// Calculates the euclidian distance between two points.
-///  \param lat_a The latitude of point a.
-///  \param long_a The longitude of point a.
-///  \param lat_b The latitude of point b.
-///  \param long_b The longitude of point b.
-///  \returns The distance between a and b in decimeter.
+/// Calculates x to the y-th power
+///  \param x The base number.
+///  \param y The exponent.
+///  \returns The power of x to the y-th power.
+double pico_gn_pow(double x, int y);
+
+/// Calculates the factorial of a value.
+///  \param value The value to calculate the factorial from.
+///  \returns The factorial of the argument.
+int pico_gn_factorial(int value);
+
+/// Calculates the cosine of a value.
+///  \param value The value to calculate the cosine from.
+///  \returns The cosine of the argument.
+double pico_gn_cos(double value);
+
+/// Calculates the equirectangular approximation distance between two points.
+///  \param lat_a The WGS84 latitude of point a.
+///  \param long_a The WGS84 longitude of point a.
+///  \param lat_b The WGS84 latitude of point b.
+///  \param long_b The WGS84 longitude of point b.
+///  \returns The distance between a and b in meters.
 int32_t pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b);
 
 #endif	/* INCLUDE_PICO_GEONETWORKING */

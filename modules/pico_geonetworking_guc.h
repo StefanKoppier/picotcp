@@ -64,10 +64,18 @@ int pico_gn_process_guc_forward(struct pico_frame *f);
 ///  \returns 0 on success, -1 on failure.
 int pico_gn_process_guc_out(struct pico_frame *f);
 
+/// Function for finding the route to the next hop using the Greedy Forwarding or Contention Based Forwarding algorithm.
+///  \bug Contention Based Forwarding is not yet implemented.
+///  \param dest The final destination of the packet.
+///  \param traffic_class The traffic class of the packet.
+///  \param result Will be set to the MID field of the next hop, 0 if the packet is added to the forwarding buffer or a broadcast address if the next hop was not found and SCF is disabled for this traffic class.
+///  \returns 0 on success, -1 on failure or a not supported algorithm.
+int pico_gn_guc_route_find(uint64_t* result, const struct pico_gn_spv *dest, const struct pico_gn_traffic_class *traffic_class);
+
 /// Function for determining the next hop.
 ///  \param dest The final destination of the packet.
 ///  \param traffic_class The traffic class of the packet.
-///  \results Returns The MID field of the next hop, 0 if the packet is added to the forwarding buffer or a broadcast address if no next hop was found.
+///  \returns Returns The MID field of the next hop, 0 if the packet is added to the forwarding buffer or a broadcast address if no next hop was found.
 uint64_t pico_gn_guc_greedy_forwarding(const struct pico_gn_spv *dest, const struct pico_gn_traffic_class *traffic_class);
 
 #endif /* INCLUDE_PICO_GEONETWORKING_GUC */

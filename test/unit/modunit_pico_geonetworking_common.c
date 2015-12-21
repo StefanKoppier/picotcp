@@ -6,6 +6,8 @@
 #include "pico_frame.h"
 #include <inttypes.h>
 
+#define IN_DELTA(x, y, d) (((x + d) <= y) && ((x - d) >= y))
+
 void pico_device_create(struct pico_device *dev, const char *name)
 {
     uint32_t len = (uint32_t)strlen(name);
@@ -892,6 +894,56 @@ START_TEST(tc_pico_gn_alloc)
 }
 END_TEST
 
+int pico_gn_guc_push_mock(struct pico_frame *frame)
+{
+    IGNORE_PARAMETER(frame);
+    return 0;
+}
+
+START_TEST(tc_pico_gn_frame_sock_push)
+{
+   { // Test for header_type_guc, result should be 0 with the basic and common header as specified in the protocol.
+        struct pico_gn_header_info guc_mock = guc_header_type;
+        struct pico_gn_header *header = NULL;
+        struct pico_frame *frame = NULL;
+        struct pico_gn_data_request request = {
+            .maximum_hop_limit = 156,
+            .type = guc_mock,
+            .lifetime = 123,
+            .upper_proto = BTP_A,
+        };
+        
+        guc_mock.push = pico_gn_guc_push_mock;
+        next_alloc_header_type = &guc_mock;
+        frame = pico_gn_alloc(&pico_proto_geonetworking, 0);
+        frame->info = (void*)&request;
+        
+        pico_gn_frame_sock_push(&pico_proto_geonetworking, frame);
+        
+        header = (struct pico_gn_header*)frame->net_hdr;
+        
+        // Basic Header assertions
+        fail_if(((header->basic_header.vnh & 0xF0) >> 4) != 0x00, "Error: the  protocol version of the Basic Header should be ETSI EN 302 636-4-1 (v1.2.1) (0).");
+        fail_if((header->basic_header.vnh & 0x0F) != 1, "Error: the next header of the Basic Header should be the Common Header (1).");
+        fail_if(header->basic_header.reserved != 0, "Error: reserved of the Basic Header should be set to 0.");
+        fail_if(header->basic_header.remaining_hop_limit != request.maximum_hop_limit, "Error: remaining hop limit of the Basic Header should be set to the maximum hop limit given by the request.");
+        fail_if(header->basic_header.lifetime != request.lifetime, "Error: lifetime of the Basic Header should be set to the lifetime given by the request.");
+        
+        // Common Header assertions
+        fail_if(((header->common_header.next_header & 0xF0) >> 4) != (uint8_t)request.upper_proto, "Error: next header of the Common Header should be set to the upper protocol given by the request.");
+        fail_if((header->common_header.next_header & 0x0F) != 0, "Error: the first reserved field of the Common Header should be set to 0.");
+        fail_if(((header->common_header.header & 0xF0) >> 4) != 2, "Error: the header type of the Common Header should be set to GeoUnicast (2).");
+        fail_if((header->common_header.next_header & 0x0F) != 0, "Error: the header sub-type of the Common Header should always be 0 for GeoUnicast.");
+        fail_if(header->common_header.traffic_class.value != 0, "Error: the traffic class of the Common Header should be set to the default traffic class (0).");
+        fail_if(header->common_header.payload_length != short_be(frame->payload_len), "Error: the payload length of the Common Header should be set to the payload length in big endian.");
+        fail_if(header->common_header.maximum_hop_limit != request.maximum_hop_limit, "Error: the maximum hop limit of the Common Header should be set to the maximum hop limit given by the request.");
+        fail_if(header->common_header.reserved_2 != 0, "Error: the second reserved field of the Common Header should be set to 0");
+        
+        PICO_FREE(frame);
+    }
+}
+END_TEST
+
 START_TEST(tc_pico_gn_abs)
 {
     fail_if(pico_gn_abs(-1) != 1, "Error: the absolute value of -1 should be 1.");
@@ -899,24 +951,24 @@ START_TEST(tc_pico_gn_abs)
 }
 END_TEST
 
-START_TEST(tc_pico_gn_sqroot)
+START_TEST(tc_pico_gn_sqrt)
 {
     double result = 0;
     uint8_t is_valid = 1;
     { // Testing square root of 4, should result in 2.
-        result = pico_gn_sqroot(4.0);
+        result = pico_gn_sqrt(4.0);
         is_valid = (result < 2.01 && result > 1.99);
         
         fail_if(!is_valid, "Error: square root of 2 should be 2.");
     }
     { // Testing the square root of 2.6, should result in 1.61245155
-        result = pico_gn_sqroot(2.6);
+        result = pico_gn_sqrt(2.6);
         is_valid = (result < 1.6125 && result > 1.6120);
         
         fail_if(!is_valid, "Error: square root of 2.6 should be 1.61245");
     }
     { // Testing the square root of -5, should result in 0.
-        result = pico_gn_sqroot(-5.0);
+        result = pico_gn_sqrt(-5.0);
         is_valid = (result == 0);
         
         fail_if(!is_valid, "Error: square root of a negative number should be 0.");
@@ -926,35 +978,39 @@ END_TEST
 
 START_TEST(tc_pico_gn_calculate_distance)
 {
-    { // Scenario one, the expected value, 794 is calculated using a working tool.
-        const int32_t expected = 794;
-        
-        int32_t lat_a = 51444761, lat_b = 51444761;
-        int32_t long_a = 5448177, long_b = 5447383;
-        
-        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
-        
-        fail_if(result != expected, "Error: value is not the same as the expected value.");
-    }
-    { // Scenario two meters, the expected value, 29(.8), is calculated using a working tool.
-        const int32_t expected = 29;
-        
-        int32_t lat_a = 51443867, lat_b = 51443860;
-        int32_t long_a = 5447726, long_b = 5447697;
-        
-        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
-        
-        fail_if(result != expected, "Error: value is not the same as the expected value.");
-    }
-    { // Scenario three, the expected value, 199(.9), is calculated using a working tool.
-        const int32_t expected = 199;
-        
-        int32_t lat_a = 51443867, lat_b = 51443998;
-        int32_t long_a = 5447726, long_b = 5447575;
-        
-        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
+    // The expected values are calculated using a existing Haversine implementation.
+    { // Scenario one, the expected value is 0.01683 km.
+        const int32_t expected = 16;
+        const int32_t delta = 1;
                 
-        fail_if(result != expected, "Error: value is not the same as the expected value.");
+        int32_t lat_a = 5144510, long_a = 544915;
+        int32_t lat_b = 5144512, long_b = 544939;
+        
+        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
+        
+        fail_if(IN_DELTA(result, expected, delta), "Error: resulting value (%d) is not the same as the expected value (%d).", result, expected);
+    }
+    { // Scenario two, the expected value is 0.1230 km.
+        const int32_t expected = 123;
+        const int32_t delta = 1;
+        
+        int32_t lat_a = 5144353, long_a = 544997;
+        int32_t lat_b = 5144245, long_b = 545037;
+                
+        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
+        
+        fail_if(IN_DELTA(result, expected, delta), "Error: resulting value (%d) is not the same as the expected value (%d).", result, expected);
+    }
+    { // Scenario three, the expected value is 0.6821 km.
+        const int32_t expected = 682;
+        const int32_t delta = 1;
+        
+        int32_t lat_a = 5142666, long_a = 540979;
+        int32_t lat_b = 5143116, long_b = 541649;
+                
+        int32_t result = pico_gn_calculate_distance(lat_a, long_a, lat_b, long_b);
+        
+        fail_if(IN_DELTA(result, expected, delta), "Error: resulting value (%d) is not the same as the expected value (%d).", result, expected);
     }
 }
 END_TEST
@@ -1032,17 +1088,21 @@ Suite *pico_suite(void)
     tcase_add_test(TCase_pico_gn_detect_duplicate_sntst_packet, tc_pico_gn_detect_duplicate_sntst_packet);
     suite_add_tcase(s, TCase_pico_gn_detect_duplicate_sntst_packet);
     
+    TCase *TCase_pico_gn_frame_sock_push = tcase_create("Unit test for pico_gn_frame_sock_push.");
+    tcase_add_test(TCase_pico_gn_frame_sock_push, tc_pico_gn_frame_sock_push);
+    suite_add_tcase(s, TCase_pico_gn_frame_sock_push);
+    
     TCase *TCase_pico_gn_calculate_distance = tcase_create("Unit test for pico_gn_calculate_distance.");
-    tcase_add_test(TCase_pico_gn_calculate_distance, tc_pico_gn_sqroot);
+    tcase_add_test(TCase_pico_gn_calculate_distance, tc_pico_gn_calculate_distance);
     suite_add_tcase(s, TCase_pico_gn_calculate_distance);
     
     TCase *TCase_pico_gn_alloc = tcase_create("Unit test for pico_gn_alloc.");
     tcase_add_test(TCase_pico_gn_alloc, tc_pico_gn_alloc);
     suite_add_tcase(s, TCase_pico_gn_alloc);
         
-    TCase *TCase_pico_gn_sqroot = tcase_create("Unit test for pico_gn_sqroot.");
-    tcase_add_test(TCase_pico_gn_sqroot, tc_pico_gn_calculate_distance);
-    suite_add_tcase(s, TCase_pico_gn_sqroot);
+    TCase *TCase_pico_gn_sqrt = tcase_create("Unit test for pico_gn_sqrt.");
+    tcase_add_test(TCase_pico_gn_sqrt, tc_pico_gn_sqrt);
+    suite_add_tcase(s, TCase_pico_gn_sqrt);
     
     TCase *TCase_pico_gn_abs = tcase_create("Unit test for pico_gn_abs.");
     tcase_add_test(TCase_pico_gn_abs, tc_pico_gn_abs);

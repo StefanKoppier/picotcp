@@ -10,6 +10,30 @@ int pico_gn_guc_send(struct pico_gn_address *destination)
 {
     next_alloc_header_type = &guc_header_type;
     struct pico_frame *f = pico_proto_geonetworking.alloc(&pico_proto_geonetworking, 0);
+    struct pico_tree_node *index = NULL;
+    
+    struct pico_gn_data_request *request = PICO_ZALLOC(PICO_SIZE_GNDATA_REQUEST);
+    request->destination = destination;
+    request->lifetime = 255;
+    request->maximum_hop_limit = 123;
+    request->traffic_class = (struct pico_gn_traffic_class){0};
+    request->type = *next_alloc_header_type;
+    request->upper_proto = BTP_A;
+    request->communication_profile = UNSPECIFIED;
+    
+    f->info = (void*)request;
+    
+    pico_tree_foreach(index, &pico_gn_dev_link) {
+        struct pico_gn_link *value = (struct pico_gn_link*)index->keyValue;
+        
+        // Commenting out the next line as a quick fix, this should be changed when the soruce address is available in this function.
+        //if (pico_gn_address_equals(value->address, source))
+        {
+            f->dev = value->dev;
+            break;
+        }
+    }
+    
     return pico_proto_geonetworking.push(&pico_proto_geonetworking, f);
 }
 
@@ -30,8 +54,110 @@ const struct pico_gn_header_info guc_header_type = {
 
 int pico_gn_guc_push(struct pico_frame *f)
 {
-    // TODO: implement function
-    return -1;
+    struct pico_gn_data_request         *request      = (struct pico_gn_data_request*)f->info;
+    struct pico_gn_guc_header           *header       = (struct pico_gn_guc_header*)(f->net_hdr + PICO_SIZE_GNHDR);
+    struct pico_eth_hdr                 *eth_hdr      = (struct pico_eth_hdr*)f->datalink_hdr;
+    struct pico_gn_spv                  *dest_pos     = NULL;
+    struct pico_gn_address              *dest_addr    = request->destination;
+    struct pico_gn_address              *src_addr     = NULL;
+    uint64_t                             next_hop_mid = 0ull;
+    struct pico_tree_node               *index        = NULL;
+    struct pico_gn_local_position_vector pos          = (struct pico_gn_local_position_vector){0};
+    uint8_t                              i            = 0;
+    
+     // Check whether the entry of the position vector for DE in its LocT is valid.
+    pico_tree_foreach(index, &pico_gn_loct) {
+        struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
+        
+        if (pico_gn_address_equals(dest_addr, entry->address))
+        {
+            dest_pos = &entry->position_vector.short_pv;
+            index = NULL;
+            break;
+        }
+    }
+    
+    // Check if an entry was found in the 
+    if (!dest_pos)
+    {
+        // TODO: Invoke the location service.
+        
+        // Discard the packet, as the protocol states.
+        pico_frame_discard(f);
+        return -1;
+    }
+    
+    // If the route finding fails, discard the packet.
+    if (pico_gn_guc_route_find(&next_hop_mid, dest_pos, &request->traffic_class))
+    {
+        pico_frame_discard(f);
+        return -1;
+    }
+    
+    if (next_hop_mid == 0)
+    {
+        // TODO: add the frame to the UC forwarding buffer
+        // Also remove the frame_discard, because the frame must be stored in the buffer, not be deleted.
+        // For now keep the discard, because the UC forwarding buffer is not implemented.
+        pico_frame_discard(f);
+        return 0;
+    }
+    /*else if (next_hop_mid == -1) 
+    {
+        pico_frame_discard(f);
+        return 0;
+    }*/
+    
+    // Try to get the current position
+    if (pico_gn_get_position(&pos))
+    {
+        pico_frame_discard(f);
+        return -1;
+    }
+    
+    // Get the GeoNetworking address for this device
+    if (f->dev)
+    {
+        pico_tree_foreach(index, &pico_gn_dev_link) {
+            struct pico_gn_link *value = (struct pico_gn_link*)index->keyValue;
+            
+            if (value->dev->hash == f->dev->hash)
+            {
+                src_addr = &value->address;
+                index = NULL;
+                break;
+            }
+        }
+    }
+    
+    if (!f->dev || src_addr == NULL)
+    {
+        pico_frame_discard(f);
+        return -1;
+    }
+    
+    // Set the fields of the GUC header
+    header->source = (struct pico_gn_lpv){ 
+        .short_pv = (struct pico_gn_spv){
+            .address = *src_addr,
+            .timestamp = pos.timestamp,
+            .latitude = pos.latitude,
+            .longitude = pos.longitude,
+        },
+        .sac = ((((uint16_t)pos.accuracy) << 15) | (pos.heading & 0xFFF)),
+        .heading = pos.heading,
+    };
+    
+    header->destination = *dest_pos;
+    header->reserved = 0;
+    header->sequence_number = pico_gn_get_next_sequence_number();
+    
+    for (i = 0; i < 6; ++i)
+    {
+        eth_hdr->daddr[i] = 0xFF;
+    }
+    
+    return pico_enqueue(pico_proto_geonetworking.q_out, f);
 }
 
 int pico_gn_process_guc_in(struct pico_frame *f)
@@ -78,25 +204,18 @@ int pico_gn_process_guc_receive(struct pico_frame *f)
 { 
     struct pico_gn_guc_header           *extended     = (struct pico_gn_guc_header*)(f->net_hdr + PICO_SIZE_GNHDR);
     struct pico_gn_header               *header       = (struct pico_gn_header*)f->net_hdr;
-    struct pico_gn_lpv                  *source       = &extended->source;
     struct pico_gn_address              *source_addr  = &extended->source.short_pv.address;
     struct pico_gn_location_table_entry *locte        = pico_gn_loct_find(source_addr);
-    int                                  is_duplicate = pico_gn_detect_duplicate_sntst_packet(f);
     struct pico_tree_node               *index        = NULL;
     
-    // Check if this packet is a duplicate.
-    switch (is_duplicate)
+    if (pico_gn_detect_duplicate_sntst_packet(f))
     {
-    case 0: break; // Not a duplicate, continue
-    case 1: // A duplicate, exit quietly.
-    case -1: // Failure, exit with an error code.
         pico_frame_discard(f);
-        dbg("Received a duplicate, discard the packet.\n");
-        // TODO: set error code if result == -1
-        return is_duplicate;
+        return 0;
     }
 
     // Check the local address for duplicate addresses, if that's so, update it.
+    // TODO: refactor the next loop in a function that checks if the address is a duplicate.
     pico_tree_foreach(index, &pico_gn_dev_link) {
         struct pico_gn_link *entry = (struct pico_gn_link*)index->keyValue;
 
@@ -138,16 +257,17 @@ int pico_gn_process_guc_receive(struct pico_frame *f)
 
     // TODO: Flush the Unicast forwarding packet buffer
 
+    // Debug send a new message test.
+    pico_gn_guc_send(source_addr);
+    
     // Pass the payload to the one of the protocols above GeoNetworking.
     // Currently none of these protocols are implemented in picoTCP, so 
     switch (PICO_GET_GNCOMMONHDR_NEXT_HEADER(header->common_header.next_header))
     {
     case BTP_A:
-        pico_transport_receive(f, PICO_PROTO_BTP_A);
-        return 0;
+        return pico_transport_receive(f, PICO_PROTO_BTP_A);
     case BTP_B:
-        pico_transport_receive(f, PICO_PROTO_BTP_B);
-        return 0;
+        return pico_transport_receive(f, PICO_PROTO_BTP_B);
     case GN6ASL:
         dbg("GN6ASL packet received, but GN6ASL is not implemented. The packet shall be discarded.\n");
         pico_frame_discard(f);
@@ -172,8 +292,9 @@ int pico_gn_process_guc_forward(struct pico_frame *f)
 
 int pico_gn_process_guc_out(struct pico_frame *f)
 {
-    // TODO: implement function.
-    return -1;
+    // Nothing special to do for GUC.
+    IGNORE_PARAMETER(f);
+    return 0;
 }
 
 struct pico_frame *pico_gn_guc_alloc(uint16_t size)
@@ -184,6 +305,23 @@ struct pico_frame *pico_gn_guc_alloc(uint16_t size)
         pico_err = PICO_ERR_ENOMEM;
                 
     return f;
+}
+
+int pico_gn_guc_route_find(uint64_t* result, const struct pico_gn_spv *dest, const struct pico_gn_traffic_class *traffic_class)
+{
+    enum pico_gn_guc_forwarding_algorithm algorithm = *((enum pico_gn_guc_forwarding_algorithm*)pico_gn_settings_get(GEOUNICAST_FORWARDING_ALGORITHM));
+    
+    switch (algorithm)
+    {
+        case UC_UNSPECIFIED:
+        case UC_GREEDY:
+            *result = pico_gn_guc_greedy_forwarding(dest, traffic_class);
+            return 0;
+        case UC_CBF:
+        default:
+            *result = 0xFFFFFFFFFFFF;
+            return -1;
+    }
 }
 
 uint64_t pico_gn_guc_greedy_forwarding(const struct pico_gn_spv *dest, const struct pico_gn_traffic_class *traffic_class)

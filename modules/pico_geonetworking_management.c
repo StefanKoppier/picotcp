@@ -89,7 +89,7 @@ void pico_gn_settings_set_implementation(enum pico_gn_setting_name name, void *v
     case GEOUNICAST_FORWARDING_ALGORITHM:    
         size = sizeof(enum pico_gn_guc_forwarding_algorithm);
         break;
-    case GEO_BROADCAST_FORWARDING_ALGORITHM:   
+    case GEOBROADCAST_FORWARDING_ALGORITHM:   
         size = sizeof(enum pico_gn_gbc_forwarding_algorithm);
         break;
     case GEOUNICAST_CBF_MIN_TIME:  
@@ -258,12 +258,12 @@ void* pico_gn_settings_get_implementation(enum pico_gn_setting_name name)
     }
     case GEOUNICAST_FORWARDING_ALGORITHM:    
     {
-        static enum pico_gn_guc_forwarding_algorithm guc_forwarding_algorithm = GREEDY;
+        static enum pico_gn_guc_forwarding_algorithm guc_forwarding_algorithm = UC_GREEDY;
         return (void*)&guc_forwarding_algorithm;
     }
-    case GEO_BROADCAST_FORWARDING_ALGORITHM: 
+    case GEOBROADCAST_FORWARDING_ALGORITHM: 
     {
-        static enum pico_gn_gbc_forwarding_algorithm gbc_forwarding_algorithm = ADVANCED;
+        static enum pico_gn_gbc_forwarding_algorithm gbc_forwarding_algorithm = BC_ADVANCED;
         return (void*)&gbc_forwarding_algorithm;
     }
     case GEOUNICAST_CBF_MIN_TIME:  

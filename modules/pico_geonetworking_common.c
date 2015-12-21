@@ -17,7 +17,7 @@
 static struct pico_queue gn_in  = {0}; // Incoming frame queue
 static struct pico_queue gn_out = {0}; // Outgoing frame queue
 
-volatile struct pico_gn_header_info *next_alloc_header_type = NULL;
+struct pico_gn_header_info *next_alloc_header_type = NULL;
 
 const struct pico_gn_traffic_class pico_gn_traffic_class_default = {0};
 
@@ -219,28 +219,24 @@ int pico_gn_process_in(struct pico_protocol *self, struct pico_frame *f)
 int pico_gn_process_out(struct pico_protocol *self, struct pico_frame *f)
 {
     IGNORE_PARAMETER(self);
-    IGNORE_PARAMETER(f);
+        
+    f->start = (uint8_t*) f->net_hdr;
     
-    dbg("pico_gn_process_out.\n");
+    // If there is something special to do for specific headers, do it in the process_out specific function.
+    // Currently, for guc, there is nothing to do.
     
-    //TODO: implement function
-    return -1;
+    return pico_sendto_dev(f);
 }
 
 /* SOCKET PUSH FUNCTIONS*/
 
 int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
 {
-    struct pico_gn_data_request *request      = (struct pico_gn_data_request *)f->info;
-    struct pico_gn_header       *header       = (struct pico_gn_header*)f->net_hdr;
-    struct pico_gn_address      *dest_addr    = request->destination;
-    struct pico_gn_lpv          *dest_pos     = NULL;
-    uint64_t                     dest_mid     = 0ull;
-    struct pico_tree_node       *index        = NULL;
-    uint64_t                     next_hop_mid = 0ull;
+    struct pico_gn_data_request *request = (struct pico_gn_data_request *)f->info;
+    struct pico_gn_header       *header  = (struct pico_gn_header*)f->net_hdr;
     IGNORE_PARAMETER(self);
     
-    if (!request) // || !f->sock this check should be added when a GeoNetworking comparable socket is available. )
+    if (!request || next_alloc_header_type == &header_info_invalid) // || !f->sock this check should be added when a GeoNetworking comparable socket is available. )
     {
         pico_err = PICO_ERR_EINVAL; // Correct error code?
         pico_frame_discard(f);
@@ -253,7 +249,7 @@ int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
     /*⬑*/ PICO_SET_GNBASICHDR_NEXT_HEADER(header->basic_header.vnh, COMMON);
     header->basic_header.reserved = 0;
     header->basic_header.lifetime = request->lifetime;
-    header->basic_header.remaining_hop_limit = request->hop_limit;
+    header->basic_header.remaining_hop_limit = request->maximum_hop_limit;
     
     // Set the fields of the Common Header
     header->common_header.next_header = 0;
@@ -261,59 +257,12 @@ int pico_gn_frame_sock_push(struct pico_protocol *self, struct pico_frame *f)
     PICO_SET_GNCOMMONHDR_HEADER(header->common_header.header, request->type.header);
     PICO_SET_GNCOMMONHDR_SUBHEADER(header->common_header.header, request->type.subheader);
     header->common_header.traffic_class = request->traffic_class; 
-    header->common_header.flags = (*((uint8_t*)pico_gn_settings_get(IS_MOBILE))) ? 1 << 8 : 0;
-    header->common_header.payload_length = f->payload_len; // TODO: set to 0 for BEACON and Location Service packets
+    header->common_header.flags = (*((uint8_t*)pico_gn_settings_get(IS_MOBILE))) ? (1 << 7) : 0;
+    header->common_header.payload_length = short_be(f->payload_len); // TODO: set to 0 for BEACON and Location Service packets
     header->common_header.maximum_hop_limit = request->maximum_hop_limit; // TODO: set to 1 for SHB, set to default constant for Location Service packets.
     header->common_header.reserved_2 = 0;
     
-    // Check whether the entry of the position vector for DE in its LocT is valid.
-    pico_tree_foreach(index, &pico_gn_loct) {
-        struct pico_gn_location_table_entry *entry = (struct pico_gn_location_table_entry*)index->keyValue;
-        
-        if (pico_gn_address_equals(dest_addr, entry->address))
-        {
-            dest_pos = &entry->position_vector;
-            break;
-        }
-    }
-    
-    // Check if an entry was found in the 
-    if (!dest_pos)
-    {
-        // TODO: Invoke the location service.
-        
-        // Discard the packet, as the protocol states.
-        pico_frame_discard(f);
-        return -1;
-    }
-    
-    //Determine the MID of the next hop
-    switch (PICO_GN_GUC_FORWARDING_ALGORITHM)
-    {
-    case PICO_GN_GUC_GREEDY_FORWARDING_ALGORITHM:
-        next_hop_mid = pico_gn_guc_greedy_forwarding(&dest_pos->short_pv, &request->traffic_class);
-    case PICO_GN_GUC_CONTENTION_BASED_FORWARDING_ALGORITHM:
-    default:
-        pico_frame_discard(f);
-        return -1;
-            break;
-    }
-    
-    if (next_hop_mid == 0)
-    {
-        // TODO: add the frame to the UC forwarding buffer
-        // Also remove the frame_discard, because the frame must be stored in the buffer, not be deleted.
-        // For now keep the discard, because the UC forwarding buffer is not implemented.
-        pico_frame_discard(f);
-        return 0;
-    }
-    /*else if (next_hop_mid == -1) 
-    {
-        pico_frame_discard(f);
-        return 0;
-    }*/
-    
-    return pico_enqueue(&gn_out, f);
+    return next_alloc_header_type->push(f);
 }
 
 /* LOCATION TABLE FUNCTIONS */
@@ -636,7 +585,7 @@ int pico_gn_get_position(struct pico_gn_local_position_vector *result)
 }
 
 #define MINDIFF 2.25e-308
-double pico_gn_sqroot(double value)
+double pico_gn_sqrt(double value)
 {
     double root = value / 3, last, diff = 1;
     
@@ -661,27 +610,63 @@ double pico_gn_abs(double value)
         return value;
 }
 
+int pico_gn_factorial(int value)
+{
+    if(value <= 1)
+        return 1;
+    else
+        return (value * pico_gn_factorial(value - 1));
+}
+
+double pico_gn_pow(double x, int y)
+{
+    double temp;
+    
+    if( y == 0)
+       return 1;
+    
+    temp = pico_gn_pow(x, y / 2);     
+    
+    if (y % 2 == 0)
+        return temp*temp;
+    else
+    {
+        if(y > 0)
+            return x * temp * temp;
+        else
+            return (temp * temp) / x;
+    }
+}
+
+
+double pico_gn_cos(double value)
+{
+    unsigned int i;
+    double sum = 0.0;
+
+    for (i = 0; i < 10; i++)
+        sum += pico_gn_pow(-1, i) * pico_gn_pow(value, 2*i) / pico_gn_factorial(2*i);
+
+    return sum;
+}
+
+#define TO_RADIANS(x) ((3.14159265358979323846 / 180) * (x))
 int32_t pico_gn_calculate_distance(int32_t lat_a, int32_t long_a, int32_t lat_b, int32_t long_b)
 {
-    int64_t lat = pico_gn_abs(lat_a - lat_b);
-    int64_t lon = pico_gn_abs(long_a - long_b);
-    int64_t delta = (lat * lat) + (lon * lon);
+    static const int32_t converter = 100000;
+    static const double earth_radius = 6372.8;
     
-    return (int32_t)pico_gn_sqroot(delta);
-    /*static const double r = 6371;
-    double th1 = (double)lat_a / 10000;
-    double ph1 = (double)long_a / 10000;
+    double lat_a_v = ((double)lat_a) / converter;
+    double lat_b_v = ((double)lat_b) / converter;
+    double long_a_v = ((double)long_a) / converter;
+    double long_b_v = ((double)long_b) / converter;
     
-    double th2 = (double)lat_b / 10000;
-    double ph2 = (double)long_b / 10000;
-   
-    double dx, dy, dz;
-    ph1 -= ph2;
-    ph1 *= TO_RAD, th1 *= TO_RAD, th2 *= TO_RAD;
+    double alpha = long_b_v - long_a_v;
 
-    dz = sin(th1) - sin(th2);
-    dx = cos(ph1) * cos(th1) - cos(th2);
-    dy = sin(ph1) * cos(th1);
+    double x = TO_RADIANS(alpha) * pico_gn_cos(TO_RADIANS(lat_a_v + lat_b_v) / 2);
+    double y = TO_RADIANS(lat_a_v - lat_b_v);
     
-    return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * r;*/
+    double d = pico_gn_sqrt(x * x + y * y) * earth_radius;
+    
+    return d * 1000;
 }
