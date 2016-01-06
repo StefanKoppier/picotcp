@@ -33,7 +33,7 @@ enum pico_gn_common_header_next_header
     CM_ANY = 0, ///< The protocol does not specify what the next header is. This packet will not be forwarded to another transport or networking layer.
     BTP_A  = 1,
     BTP_B  = 2,
-    GN6ASL = 3,
+    GN6ASL = 3, ///< GeoNetworking to IPv6 Adaption Sub-layer.
 };
 
 extern struct pico_protocol pico_proto_geonetworking;
@@ -55,6 +55,7 @@ enum pico_gn_address_conf_method
     ANONYMOUS = 2, ///< Anonymous address configuration. Request an address from the security entity. \bug This feature is not supported.
 };
 
+/// Enum for the possible GeoUnicast forwarding algorithms.
 enum pico_gn_guc_forwarding_algorithm
 {
     UC_UNSPECIFIED = 0,
@@ -62,6 +63,7 @@ enum pico_gn_guc_forwarding_algorithm
     UC_CBF         = 2,
 };
 
+/// Enum for the possible GeoBroadcast forwarding algorithms.
 enum pico_gn_gbc_forwarding_algorithm
 {
     BC_UNSPECIFIED = 0,
@@ -100,12 +102,14 @@ enum pico_gn_station_type
     ROADSIDE_UNIT   = 15,
 };
 
+/// Enum for the data-link layer protocol that should be used.
 enum pico_gn_interface_type
 {
     UNSPECIFIED = 0,
     ITSG5 = 1,
 };
 
+/// Enum for the use of the security layer.
 enum pico_gn_security
 {
     DISABLED = 0,
@@ -157,13 +161,6 @@ PACKED_STRUCT_DEF pico_gn_address
     uint64_t value; ///< Contains all values for the GeoNetworking address. The first bit determines whether the address was manually set using \enum pico_gn_address_conf _method.AUTO, this means 0 when the address if manually configures, 1 if otherwise. The next five bits determine the type of the ITS-station. The next ten bits determine the ITS-station country code as described in 'ITU Operational Bulletin No. 741 - 1.VI.2001'. The last 48 bit represent the Logic Link Address.
 };
 
-#define PICO_SIZE_GNPOSITION (uint32_t)sizeof(struct pico_gn_position))
-/// The target location for sending a GAC/GBC packet.
-struct pico_gn_position
-{
-    
-};
-
 #define PICO_SIZE_GNSPV ((uint32_t)sizeof(struct pico_gn_spv))
 /// The Short Position Vector containing the minimum position-related information.
 PACKED_STRUCT_DEF pico_gn_spv
@@ -204,7 +201,7 @@ struct pico_gn_location_table_entry
 };
 
 #define PICO_SIZE_GNLINK ((uint32_t)sizeof(struct pico_gn_link))
-/// The link between the \struct pico_device and the \struct pico_gn_address
+/// The link between the \struct pico_device and the \struct pico_gn_address.
 struct pico_gn_link
 {
     struct pico_device *dev; ///< The device which the address is coupled to.
